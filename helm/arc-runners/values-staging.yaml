@@ -1,0 +1,33 @@
+# GitHub ARC Runner Scale Set - Staging Environment
+
+githubConfigUrl: "https://github.com/pytorch/pytorch-test"  # Change to actual test repo
+
+runnerScaleSetName: "pytorch-runners-staging"
+
+minRunners: 0
+maxRunners: 5
+
+template:
+  spec:
+    containers:
+    - name: runner
+      # Override with custom image once pushed to ECR
+      # image: <account>.dkr.ecr.us-west-2.amazonaws.com/pytorch-cloud/runner-base:latest
+      resources:
+        limits:
+          cpu: "2"
+          memory: "4Gi"
+        requests:
+          cpu: "1"
+          memory: "2Gi"
+    
+    volumes:
+    - name: work
+      ephemeral:
+        volumeClaimTemplate:
+          spec:
+            accessModes: [ "ReadWriteOnce" ]
+            resources:
+              requests:
+                storage: 30Gi
+            storageClassName: gp2

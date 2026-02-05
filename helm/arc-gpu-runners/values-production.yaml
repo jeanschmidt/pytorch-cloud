@@ -1,0 +1,44 @@
+# GitHub ARC GPU Runner Scale Set - Production
+
+githubConfigUrl: "https://github.com/pytorch/pytorch"
+
+runnerScaleSetName: "pytorch-gpu-runners-production"
+
+minRunners: 1
+maxRunners: 10
+
+template:
+  spec:
+    nodeSelector:
+      nvidia.com/gpu: "true"
+    
+    tolerations:
+    - key: nvidia.com/gpu
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+    
+    containers:
+    - name: runner
+      # Override with custom GPU image
+      # image: <account>.dkr.ecr.us-west-2.amazonaws.com/pytorch-cloud/runner-gpu:latest
+      resources:
+        limits:
+          nvidia.com/gpu: 1
+          cpu: "8"
+          memory: "32Gi"
+        requests:
+          nvidia.com/gpu: 1
+          cpu: "4"
+          memory: "16Gi"
+    
+    volumes:
+    - name: work
+      ephemeral:
+        volumeClaimTemplate:
+          spec:
+            accessModes: [ "ReadWriteOnce" ]
+            resources:
+              requests:
+                storage: 200Gi
+            storageClassName: gp2

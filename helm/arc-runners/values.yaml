@@ -1,0 +1,80 @@
+# GitHub ARC Runner Scale Set - Base Values (New v0.8.0+ API)
+# These define the runner deployments
+# Chart: oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
+
+# REQUIRED: GitHub configuration URL (org or repo level)
+# Format: https://github.com/OWNER or https://github.com/OWNER/REPO
+githubConfigUrl: ""  # MUST be set via --set or values override
+
+# REQUIRED: Name of Kubernetes secret containing GitHub token/app credentials
+# Create with: kubectl create secret generic github-secret --from-literal=github_token=ghp_xxx
+githubConfigSecret: "github-secret"
+
+# Runner scale set name (shows up in GitHub UI)
+runnerScaleSetName: "pytorch-runners"
+
+# Min/max runners
+minRunners: 0
+maxRunners: 10
+
+# Runner group (optional, for enterprise)
+runnerGroup: "default"
+
+# Container mode - use dind (docker-in-docker) for Docker support
+containerMode:
+  type: "dind"
+  ## To use kubernetes mode instead:
+  # type: "kubernetes"
+
+# Runner image - default or custom
+# Override in environment-specific values to use custom ECR images
+template:
+  spec:
+    containers:
+    - name: runner
+      image: ghcr.io/actions/actions-runner:latest
+      command: ["/home/runner/run.sh"]
+      env:
+      - name: RUNNER_FEATURE_FLAG_EPHEMERAL
+        value: "true"
+      resources:
+        limits:
+          cpu: "4"
+          memory: "8Gi"
+        requests:
+          cpu: "2"
+          memory: "4Gi"
+      volumeMounts:
+      - name: work
+        mountPath: /home/runner/_work
+    
+    # Volumes
+    volumes:
+    - name: work
+      ephemeral:
+        volumeClaimTemplate:
+          spec:
+            accessModes: [ "ReadWriteOnce" ]
+            resources:
+              requests:
+                storage: 50Gi
+            # Use gp2 by default (gp3 requires StorageClass creation)
+            storageClassName: gp2
+
+# Controller service account
+controllerServiceAccount:
+  namespace: arc-systems
+  name: arc-controller
+
+# Listen for webhook events (auto-scaling based on workflow demand)
+listenerTemplate:
+  spec:
+    containers:
+    - name: listener
+      resources:
+        limits:
+          cpu: "200m"
+          memory: "256Mi"
+        requests:
+          cpu: "100m"
+          memory: "128Mi"

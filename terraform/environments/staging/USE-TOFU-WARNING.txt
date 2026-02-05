@@ -1,0 +1,20 @@
+# ⚠️ CRITICAL: USE OPENTOFU (tofu), NOT TERRAFORM
+
+# This environment uses OpenTofu, not Terraform.
+# NEVER run "terraform" commands in this directory!
+#
+# Mixing terraform and tofu will corrupt the state file and may destroy infrastructure.
+#
+# Use:
+#   cd /path/to/pytorch-cloud
+#   just tf-init staging
+#   just tf-plan staging
+#   just tf-apply staging
+#
+# Or if you must run directly:
+#   cd terraform/environments/staging
+#   tofu init
+#   tofu plan
+#   tofu apply
+#
+# See /CRITICAL-USE-TOFU.md for full details.

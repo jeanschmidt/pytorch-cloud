@@ -1,0 +1,13 @@
+⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️
+
+CRITICAL WARNING: THIS PROJECT USES OPENTOFU, NOT TERRAFORM!
+
+NEVER run "terraform" commands on this project!
+
+Use "tofu" or "just tf-*" commands instead.
+
+Running "terraform" will CORRUPT THE STATE FILE!
+
+See CRITICAL-USE-TOFU.md for details.
+
+⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️

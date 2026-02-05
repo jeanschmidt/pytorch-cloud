@@ -1,0 +1,124 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      component:
+        description: 'Component to deploy'
+        required: true
+        type: choice
+        options:
+          - infrastructure
+          - kubernetes
+          - helm-arc
+          - all
+
+jobs:
+  deploy-infrastructure:
+    name: Deploy Infrastructure (OpenTofu)
+    runs-on: ubuntu-latest
+    if: inputs.component == 'infrastructure' || inputs.component == 'all'
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
+
+      - name: Install just
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+
+      - name: Setup
+        run: just setup
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-west-2
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+
+      - name: OpenTofu Init
+        run: just tf-init ${{ inputs.environment }}
+
+      - name: OpenTofu Plan
+        run: just tf-plan ${{ inputs.environment }}
+
+      - name: OpenTofu Apply
+        run: just tf-apply ${{ inputs.environment }}
+
+  deploy-kubernetes:
+    name: Deploy Kubernetes
+    runs-on: ubuntu-latest
+    if: inputs.component == 'kubernetes' || inputs.component == 'all'
+    environment: ${{ inputs.environment }}
+    needs: [deploy-infrastructure]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
+
+      - name: Install just
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-west-2
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+
+      - name: Update kubeconfig
+        run: |
+          CLUSTER_NAME=$(cd terraform/environments/${{ inputs.environment }} && tofu output -raw cluster_name)
+          aws eks update-kubeconfig --region us-west-2 --name $CLUSTER_NAME
+
+      - name: Apply Kubernetes manifests
+        run: just k8s-apply ${{ inputs.environment }}
+
+  deploy-arc:
+    name: Deploy ARC
+    runs-on: ubuntu-latest
+    if: inputs.component == 'helm-arc' || inputs.component == 'all'
+    environment: ${{ inputs.environment }}
+    needs: [deploy-kubernetes]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
+
+      - name: Install just
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-west-2
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+
+      - name: Update kubeconfig
+        run: |
+          CLUSTER_NAME=$(cd terraform/environments/${{ inputs.environment }} && tofu output -raw cluster_name)
+          aws eks update-kubeconfig --region us-west-2 --name $CLUSTER_NAME
+
+      - name: Install ARC
+        run: |
+          just helm-install-arc ${{ inputs.environment }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.ARC_GITHUB_TOKEN }}

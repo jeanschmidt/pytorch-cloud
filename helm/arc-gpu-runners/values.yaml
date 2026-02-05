@@ -1,0 +1,93 @@
+# GitHub ARC GPU Runner Scale Set - Base Values
+# GPU-specific runner configuration
+# Chart: oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
+
+# REQUIRED: GitHub configuration URL
+githubConfigUrl: ""  # MUST be set via --set or values override
+
+# REQUIRED: Name of Kubernetes secret containing GitHub credentials
+githubConfigSecret: "github-secret"
+
+# Runner scale set name
+runnerScaleSetName: "pytorch-gpu-runners"
+
+# Min/max runners (GPUs are expensive, scale to zero when idle)
+minRunners: 0
+maxRunners: 5
+
+# Runner group
+runnerGroup: "default"
+
+# Container mode - dind for Docker support
+containerMode:
+  type: "dind"
+
+# GPU Runner template with NVIDIA GPU resources
+template:
+  spec:
+    # Node selector - only schedule on GPU nodes
+    nodeSelector:
+      nvidia.com/gpu: "true"
+    
+    # Tolerations - allow scheduling on tainted GPU nodes
+    tolerations:
+    - key: nvidia.com/gpu
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+    
+    containers:
+    - name: runner
+      # Use custom GPU image with CUDA
+      image: ghcr.io/actions/actions-runner:latest
+      # Override in env-specific values: <account>.dkr.ecr.us-west-2.amazonaws.com/pytorch-cloud/runner-gpu:latest
+      command: ["/home/runner/run.sh"]
+      env:
+      - name: RUNNER_FEATURE_FLAG_EPHEMERAL
+        value: "true"
+      - name: NVIDIA_VISIBLE_DEVICES
+        value: "all"
+      - name: NVIDIA_DRIVER_CAPABILITIES
+        value: "compute,utility"
+      resources:
+        limits:
+          nvidia.com/gpu: 1  # Request 1 GPU
+          cpu: "8"
+          memory: "32Gi"
+        requests:
+          nvidia.com/gpu: 1
+          cpu: "4"
+          memory: "16Gi"
+      volumeMounts:
+      - name: work
+        mountPath: /home/runner/_work
+    
+    # Volumes
+    volumes:
+    - name: work
+      ephemeral:
+        volumeClaimTemplate:
+          spec:
+            accessModes: [ "ReadWriteOnce" ]
+            resources:
+              requests:
+                storage: 100Gi
+            storageClassName: gp2
+
+# Controller service account
+controllerServiceAccount:
+  namespace: arc-systems
+  name: arc-controller
+
+# Listener
+listenerTemplate:
+  spec:
+    containers:
+    - name: listener
+      resources:
+        limits:
+          cpu: "200m"
+          memory: "256Mi"
+        requests:
+          cpu: "100m"
+          memory: "128Mi"

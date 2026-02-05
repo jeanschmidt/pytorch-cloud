@@ -1,0 +1,13 @@
+# GitHub ARC Controller - Staging Environment
+# Override values for staging
+
+log:
+  level: debug
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi

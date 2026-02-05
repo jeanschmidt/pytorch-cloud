@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+*.egg-info/
+dist/
+build/
+
+# Terraform
+.terraform/
+.terraform.d/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!terraform/*.tfvars.example
+.terragrunt-cache/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Secrets
+*.pem
+*.key
+*.crt
+secrets.yaml
+*.secret
+
+# Logs
+*.log
+
+# Node
+node_modules/
+
+# Helm
+*.tgz
+
+# Packer
+packer_cache/
+*.box
+
+# Local overrides
+.env
+.envrc.local
+local/
+
+# Mise
+.mise.local.toml

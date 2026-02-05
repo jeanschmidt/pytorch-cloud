@@ -1,0 +1,10 @@
+# Base kustomization - shared across all environments
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - nvidia-device-plugin.yaml
+  - namespace.yaml
+  - runner-hooks-configmap.yaml
+
+# Don't set a default namespace - resources specify their own

@@ -1,0 +1,33 @@
+# mise.toml - Tool version management
+# https://mise.jdx.dev/
+
+# ⚠️ CRITICAL: This project uses OpenTofu (tofu), NOT Terraform!
+# NEVER run "terraform" commands - they will corrupt the state file.
+# Always use "tofu" or "just tf-*" commands.
+
+[tools]
+python = "3.12"
+terraform = "1.7"  # This installs OpenTofu, despite the name
+kubectl = "1.29"
+helm = "3.14"
+awscli = "2"
+packer = "1.10"
+
+# Note: mise uses "terraform" as the tool name, but it installs OpenTofu (tofu) binary
+# The actual command you should use is "tofu", not "terraform"
+
+[env]
+# Project-specific environment variables
+PROJECT_NAME = "pytorch-cloud"
+AWS_REGION = "us-west-2"  # PyTorch typically uses us-west-2
+
+# Python virtualenv auto-activation
+VIRTUAL_ENV = "{{config_root}}/.venv"
+PATH = "{{config_root}}/.venv/bin:{{env.PATH}}"
+
+# Terraform/OpenTofu settings
+TF_PLUGIN_CACHE_DIR = "{{config_root}}/.terraform.d/plugin-cache"
+
+[settings]
+# Automatically install tools when entering directory
+auto_install = true
