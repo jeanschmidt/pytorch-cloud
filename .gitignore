@@ -57,3 +57,15 @@ local/
 
 # Mise
 .mise.local.toml
+
+# Markdown - agents creates a lot of markdown files, we only want to track the ones that are relevant
+*.md
+!./python/README.md
+!./docs/QUICKSTART.md
+!./docs/GPU-SETUP.md
+!./docs/SETUP-CHECKLIST.md
+!./docs/PROJECT-STRUCTURE.md
+!./README.md
+!./CONTRIBUTING.md
+!./AGENTS.md
+!./CLAUDE.md
