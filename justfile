@@ -20,6 +20,7 @@ default:
 setup: _ensure-mise
     mise install
     just _setup-terraform
+    just _setup-linters
     @echo "✓ Setup complete"
 
 # Clean all generated files and caches
@@ -36,15 +37,82 @@ clean:
 # DEVELOPMENT
 # ============================================================================
 
-# Run linting on all code
-lint: _ensure-mise
-    tofu fmt -check -recursive terraform/
-    shellcheck scripts/*.sh || true
-    yamllint kubernetes/ || true
+# Run all linting checks
+lint: lint-tofu lint-shell lint-yaml lint-docker lint-helm lint-python
+    @echo "✓ All linting passed"
 
-# Auto-fix linting issues
-lint-fix: _ensure-mise
+# Auto-fix all linting issues where possible
+lint-fix: lint-fix-tofu lint-fix-shell lint-fix-yaml lint-fix-python
+    @echo "✓ All auto-fixes applied"
+
+# Lint OpenTofu/Terraform files
+lint-tofu: _ensure-mise
+    @echo "→ Linting Terraform/OpenTofu..."
+    tofu fmt -check -recursive terraform/
+
+# Auto-fix OpenTofu/Terraform formatting
+lint-fix-tofu: _ensure-mise
+    @echo "→ Formatting Terraform/OpenTofu..."
     tofu fmt -recursive terraform/
+
+# Lint shell scripts
+lint-shell: _ensure-mise
+    @echo "→ Linting shell scripts..."
+    find scripts/ -type f -name "*.sh" -exec shellcheck {} +
+    find terraform/modules/*/user-data-*.sh.tpl -type f -exec shellcheck -x {} + || true
+
+# Auto-fix shell script formatting
+lint-fix-shell: _ensure-mise
+    @echo "→ Formatting shell scripts..."
+    find scripts/ -type f -name "*.sh" -exec shfmt -w {} +
+
+# Lint YAML files (Kubernetes, Helm, workflows)
+lint-yaml: _ensure-mise
+    @echo "→ Linting YAML files..."
+    yamllint kubernetes/ helm/ .github/
+
+# Auto-fix YAML formatting (limited - yamllint doesn't auto-fix much)
+lint-fix-yaml: _ensure-mise
+    @echo "→ Checking YAML files..."
+    yamllint kubernetes/ helm/ .github/ || true
+
+# Lint Dockerfiles
+lint-docker: _ensure-mise
+    @echo "→ Linting Dockerfiles..."
+    find docker/ -name "Dockerfile" -exec hadolint {} +
+
+# Lint Helm charts
+lint-helm: _ensure-mise
+    @echo "→ Linting Helm charts..."
+    helm lint helm/arc/
+    helm lint helm/arc-runners/
+    helm lint helm/arc-gpu-runners/
+
+# Lint Python code (when python code exists)
+lint-python: _ensure-mise
+    @echo "→ Linting Python code..."
+    @if [ -d "python/" ]; then \
+        cd python/ && ruff check .; \
+        cd python/ && ruff format --check .; \
+        cd python/ && mypy . || true; \
+    else \
+        echo "  (no Python code yet)"; \
+    fi
+
+# Auto-fix Python formatting
+lint-fix-python: _ensure-mise
+    @echo "→ Formatting Python code..."
+    @if [ -d "python/" ]; then \
+        cd python/ && ruff check --fix .; \
+        cd python/ && ruff format .; \
+    else \
+        echo "  (no Python code yet)"; \
+    fi
+
+# Lint Packer templates
+lint-packer: _ensure-mise
+    @echo "→ Validating Packer templates..."
+    find ami/ -name "*.pkr.hcl" -exec packer validate {} \; || true
 
 # ============================================================================
 # TERRAFORM / OPENTOFU
@@ -186,3 +254,18 @@ _setup-terraform:
     mkdir -p .terraform.d/plugin-cache
     @echo "✓ OpenTofu/Terraform cache ready"
     @echo "⚠️  REMINDER: Use 'tofu' commands, not 'terraform'"
+
+_setup-linters:
+    @echo "→ Installing linting tools..."
+    @command -v yamllint > /dev/null || pip3 install --user yamllint
+    @command -v hadolint > /dev/null || { \
+        echo "  Installing hadolint..."; \
+        if [[ "$$OSTYPE" == "darwin"* ]]; then \
+            brew install hadolint 2>/dev/null || curl -sL https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Darwin-x86_64 -o /usr/local/bin/hadolint && chmod +x /usr/local/bin/hadolint; \
+        else \
+            curl -sL https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 -o /usr/local/bin/hadolint && chmod +x /usr/local/bin/hadolint; \
+        fi \
+    }
+    @command -v ruff > /dev/null || pip3 install --user ruff
+    @command -v mypy > /dev/null || pip3 install --user mypy
+    @echo "✓ Linting tools ready"

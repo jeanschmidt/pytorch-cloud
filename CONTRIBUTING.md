@@ -98,25 +98,51 @@ just helm-install-arc staging
 
 ## Code Style
 
+**IMPORTANT**: All code must pass linting before merging. See [docs/LINTING.md](docs/LINTING.md) for details.
+
+Run linting:
+```bash
+# Check all
+just lint
+
+# Auto-fix
+just lint-fix
+```
+
 ### OpenTofu
-- Use `tofu fmt` (via `just lint-fix`)
+- Use `tofu fmt` (via `just lint-tofu` or `just lint-fix-tofu`)
 - Follow module patterns in `terraform/modules/`
 - Always include outputs and variables files
+- Never embed scripts inline (use `templatefile()`)
 
 ### Docker
 - Use multi-stage builds when appropriate
+- Pass `hadolint` checks (`just lint-docker`)
 - Minimize layer count
 - Include `.dockerignore` files
 
 ### Kubernetes
 - Use kustomize for environment variations
+- Pass `yamllint` checks (`just lint-yaml`)
 - Follow manifest organization in `base/`
 - Include resource limits and requests
 
 ### Bash
 - Start with `set -euo pipefail`
-- Use shellcheck
+- Pass `shellcheck` checks (`just lint-shell`)
+- Use `shfmt` formatting (2 spaces, `just lint-fix-shell`)
 - Include logging and error handling
+
+### Python (when added)
+- Follow PEP 8 with 100 char line length
+- Pass `ruff` and `mypy` checks (`just lint-python`)
+- Use type hints
+- Auto-format with `ruff format` (`just lint-fix-python`)
+
+### Helm
+- Pass `helm lint` checks (`just lint-helm`)
+- Follow values structure patterns
+- Document all values in comments
 
 ## Commit Guidelines
 
@@ -128,10 +154,13 @@ just helm-install-arc staging
 
 1. Create a feature branch
 2. Make your changes
-3. Run `just ci-check` to verify
-4. Test in staging environment
-5. Submit PR with clear description
-6. Address review feedback
+3. **Run linting**: `just lint` (and fix any issues)
+4. **Run CI checks**: `just ci-check` to verify
+5. Test in staging environment
+6. Submit PR with clear description
+7. Address review feedback
+
+**Note**: All PRs must pass linting and CI checks before merging.
 
 ## Secrets and Credentials
 

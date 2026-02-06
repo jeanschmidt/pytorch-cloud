@@ -167,7 +167,33 @@ EOT
 | Deploy runners | `just k8s-apply <env>` |
 | Build Docker image | `just docker-build <image>` |
 | Build AMI | `just ami-build <name>` |
+| Run all linting | `just lint` |
+| Auto-fix linting | `just lint-fix` |
 | Run all checks | `just ci-check` |
+
+## Development
+
+### Linting
+
+This project uses comprehensive linting for code quality:
+
+```bash
+# Run all linters
+just lint
+
+# Auto-fix issues
+just lint-fix
+
+# Run specific linters
+just lint-tofu      # OpenTofu/Terraform
+just lint-shell     # Bash scripts
+just lint-yaml      # Kubernetes/Helm YAML
+just lint-docker    # Dockerfiles
+just lint-helm      # Helm charts
+just lint-python    # Python code
+```
+
+See [docs/LINTING.md](docs/LINTING.md) for detailed linting documentation.
 
 ## Contributing
 

@@ -85,64 +85,89 @@ resource "aws_iam_openid_connect_provider" "cluster" {
 
 # EKS Addons
 resource "aws_eks_addon" "vpc_cni" {
-  cluster_name = aws_eks_cluster.this.name
-  addon_name   = "vpc-cni"
-  addon_version = "v1.16.0-eksbuild.1"
+  cluster_name                = aws_eks_cluster.this.name
+  addon_name                  = "vpc-cni"
+  addon_version               = "v1.16.0-eksbuild.1"
   resolve_conflicts_on_update = "PRESERVE"
 
   tags = var.tags
 }
 
 resource "aws_eks_addon" "coredns" {
-  cluster_name = aws_eks_cluster.this.name
-  addon_name   = "coredns"
-  addon_version = "v1.11.1-eksbuild.4"
+  cluster_name                = aws_eks_cluster.this.name
+  addon_name                  = "coredns"
+  addon_version               = "v1.11.1-eksbuild.4"
   resolve_conflicts_on_update = "PRESERVE"
+
+  # CoreDNS must tolerate base node taints to run on infrastructure nodes
+  configuration_values = jsonencode({
+    tolerations = [
+      {
+        key      = "CriticalAddonsOnly"
+        operator = "Equal"
+        value    = "true"
+        effect   = "NoSchedule"
+      }
+    ]
+  })
 
   tags = var.tags
 
-  depends_on = [aws_eks_node_group.cpu]
+  depends_on = [aws_eks_node_group.base]
 }
 
 resource "aws_eks_addon" "kube_proxy" {
-  cluster_name = aws_eks_cluster.this.name
-  addon_name   = "kube-proxy"
-  addon_version = "v1.29.0-eksbuild.1"
+  cluster_name                = aws_eks_cluster.this.name
+  addon_name                  = "kube-proxy"
+  addon_version               = "v1.29.0-eksbuild.1"
   resolve_conflicts_on_update = "PRESERVE"
 
   tags = var.tags
 }
 
-# CPU Node Group
-resource "aws_eks_node_group" "cpu" {
+# Base Infrastructure Node Group (Fixed Size)
+# These nodes run critical cluster components only (ARC, Karpenter, CoreDNS, etc.)
+# Tainted to prevent runner workloads from scheduling here
+resource "aws_eks_node_group" "base" {
   cluster_name    = aws_eks_cluster.this.name
-  node_group_name = "${var.cluster_name}-cpu-nodes"
+  node_group_name = "${var.cluster_name}-base-nodes"
   node_role_arn   = aws_iam_role.node.arn
   subnet_ids      = var.subnet_ids
 
+  # Fixed size - no auto-scaling
   scaling_config {
-    desired_size = 2
-    max_size     = 10
-    min_size     = 1
+    desired_size = var.base_node_count
+    max_size     = var.base_node_count
+    min_size     = var.base_node_count
   }
 
-  instance_types = ["m5.xlarge"]
+  instance_types = [var.base_node_instance_type]
   capacity_type  = "ON_DEMAND"
 
   labels = {
-    role = "cpu"
+    role                           = "base-infrastructure"
+    "node.kubernetes.io/lifecycle" = "on-demand"
+  }
+
+  # Taint to prevent runner workloads from landing here
+  # Only system components with matching tolerations can schedule
+  taint {
+    key    = "CriticalAddonsOnly"
+    value  = "true"
+    effect = "NO_SCHEDULE"
   }
 
   # Use launch template for bootstrap script
   launch_template {
-    id      = aws_launch_template.cpu.id
+    id      = aws_launch_template.base.id
     version = "$Latest"
   }
 
   tags = merge(
     var.tags,
     {
-      Name = "${var.cluster_name}-cpu-nodes"
+      Name = "${var.cluster_name}-base-nodes"
+      Type = "base-infrastructure"
     }
   )
 
@@ -153,16 +178,16 @@ resource "aws_eks_node_group" "cpu" {
   ]
 }
 
-# Launch template for CPU nodes
-resource "aws_launch_template" "cpu" {
-  name_prefix   = "${var.cluster_name}-cpu-"
-  image_id      = ""  # Empty = use EKS-optimized AMI
-  instance_type = "m5.xlarge"
+# Launch template for base infrastructure nodes
+resource "aws_launch_template" "base" {
+  name_prefix   = "${var.cluster_name}-base-"
+  image_id      = "" # Empty = use EKS-optimized AMI
+  instance_type = var.base_node_instance_type
 
   # User data calls EKS bootstrap, then runs our post-bootstrap script
-  user_data = base64encode(templatefile("${path.module}/user-data-cpu.sh.tpl", {
-    cluster_name         = aws_eks_cluster.this.name
-    post_bootstrap_script = file("${path.module}/../../scripts/bootstrap/eks-cpu-bootstrap.sh")
+  user_data = base64encode(templatefile("${path.module}/user-data-base.sh.tpl", {
+    cluster_name          = aws_eks_cluster.this.name
+    post_bootstrap_script = file("${path.module}/../../scripts/bootstrap/eks-base-bootstrap.sh")
   }))
 
   block_device_mappings {
@@ -189,7 +214,8 @@ resource "aws_launch_template" "cpu" {
     tags = merge(
       var.tags,
       {
-        Name = "${var.cluster_name}-cpu-node"
+        Name = "${var.cluster_name}-base-node"
+        Type = "base-infrastructure"
       }
     )
   }
@@ -214,8 +240,8 @@ resource "aws_eks_node_group" "gpu" {
   capacity_type  = "ON_DEMAND"
 
   labels = {
-    role                = "gpu"
-    "nvidia.com/gpu"    = "true"
+    role             = "gpu"
+    "nvidia.com/gpu" = "true"
   }
 
   taints {
@@ -247,12 +273,12 @@ resource "aws_eks_node_group" "gpu" {
 # Launch template for GPU nodes
 resource "aws_launch_template" "gpu" {
   name_prefix   = "${var.cluster_name}-gpu-"
-  image_id      = ""  # Empty = use EKS GPU-optimized AMI
+  image_id      = "" # Empty = use EKS GPU-optimized AMI
   instance_type = "g4dn.xlarge"
 
   # User data calls EKS bootstrap, then runs our post-bootstrap script
   user_data = base64encode(templatefile("${path.module}/user-data-gpu.sh.tpl", {
-    cluster_name         = aws_eks_cluster.this.name
+    cluster_name          = aws_eks_cluster.this.name
     post_bootstrap_script = file("${path.module}/../../scripts/bootstrap/eks-gpu-bootstrap.sh")
   }))
 

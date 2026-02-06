@@ -1,0 +1,15 @@
+# hadolint configuration for Dockerfile linting
+# https://github.com/hadolint/hadolint
+
+ignored:
+  # DL3008: Pin versions in apt-get install
+  - DL3008
+  # DL3009: Delete apt cache after installing
+  - DL3009
+  # DL3015: Avoid additional packages by specifying --no-install-recommends
+  - DL3015
+
+trustedRegistries:
+  - ghcr.io
+  - docker.io
+  - public.ecr.aws

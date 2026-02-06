@@ -13,8 +13,13 @@ helm = "3.14"
 awscli = "2"
 packer = "1.10"
 
+# Linting tools
+shellcheck = "latest"
+shfmt = "latest"
+
 # Note: mise uses "terraform" as the tool name, but it installs OpenTofu (tofu) binary
 # The actual command you should use is "tofu", not "terraform"
+# Additional linting tools installed via pip/npm are managed in justfile
 
 [env]
 # Project-specific environment variables

@@ -1,0 +1,10 @@
+# shellcheck configuration
+# Disable specific checks that are too strict for our use case
+
+# SC2086: Double quote to prevent globbing and word splitting
+# (We intentionally use word splitting in some cases)
+disable=SC2086
+
+# SC1091: Not following sourced files
+# (Our scripts source files that may not exist at lint time)
+disable=SC1091

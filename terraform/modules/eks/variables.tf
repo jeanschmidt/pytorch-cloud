@@ -43,6 +43,18 @@ variable "cluster_endpoint_public_access_cidrs" {
   default     = ["0.0.0.0/0"]
 }
 
+variable "base_node_count" {
+  description = "Fixed number of base infrastructure nodes"
+  type        = number
+  default     = 10
+}
+
+variable "base_node_instance_type" {
+  description = "Instance type for base infrastructure nodes"
+  type        = string
+  default     = "m5.xlarge"
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

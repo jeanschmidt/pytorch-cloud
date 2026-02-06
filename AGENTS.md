@@ -221,11 +221,18 @@ This project includes NVIDIA GPU support:
 
 ## Making Changes
 
+**Standard workflow for all changes:**
+
 1. Run `just setup` if dependencies changed
-2. Make your changes
-3. Run `just lint` to check formatting
-4. Run `just tf-validate` if Terraform was modified
-5. Test in staging before production
+2. Make your changes (keeping code organized by type)
+3. **Run `just lint`** to check all code (OpenTofu, shell, YAML, Docker, etc.)
+4. **Run `just lint-fix`** to auto-fix formatting issues
+5. Run `just tf-validate` if OpenTofu was modified
+6. Test in staging before production
+
+**Linting is mandatory** - all PRs must pass `just lint` before merging.
+
+See [docs/LINTING.md](docs/LINTING.md) for detailed linting information.
 
 ## Notes
 

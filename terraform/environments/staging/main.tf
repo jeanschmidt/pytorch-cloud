@@ -55,7 +55,7 @@ module "vpc" {
   private_subnets    = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
   public_subnets     = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
   enable_nat_gateway = true
-  single_nat_gateway = true  # Cost optimization for staging
+  single_nat_gateway = true # Cost optimization for staging
 
   tags = merge(local.tags, {
     "kubernetes.io/cluster/${local.cluster_name}" = "shared"
@@ -74,6 +74,10 @@ module "eks" {
 
   cluster_endpoint_private_access = true
   cluster_endpoint_public_access  = true
+
+  # Base infrastructure nodes (fixed size, tainted)
+  base_node_count         = var.base_node_count
+  base_node_instance_type = var.base_node_instance_type
 
   tags = local.tags
 }

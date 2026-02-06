@@ -41,3 +41,15 @@ metrics:
 securityContext:
   runAsNonRoot: true
   runAsUser: 1000
+
+# CRITICAL: Tolerations to run on base infrastructure nodes
+# The base nodes are tainted with CriticalAddonsOnly=true:NoSchedule
+tolerations:
+- key: CriticalAddonsOnly
+  operator: Equal
+  value: "true"
+  effect: NoSchedule
+
+# Node selector (optional - can specify if base nodes have specific labels)
+nodeSelector: {}
+

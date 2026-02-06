@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# EKS CPU Node Bootstrap Script
+# EKS Base Infrastructure Node Bootstrap Script
 # This script runs AFTER the EKS bootstrap process
 # It is called from the Terraform launch template
 
@@ -7,6 +7,8 @@ set -euo pipefail
 
 # The EKS bootstrap script must be called FIRST by the launch template
 # This script contains post-bootstrap configuration only
+
+echo "Starting base infrastructure node post-bootstrap at $(date)"
 
 # Configure Docker daemon
 cat > /etc/docker/daemon.json <<'EOF'
@@ -34,7 +36,7 @@ yum install -y \
     git \
     ccache
 
-# Configure node for CI workloads
+# Configure node for infrastructure workloads
 sysctl -w vm.max_map_count=262144
 echo "vm.max_map_count=262144" >> /etc/sysctl.conf
 
@@ -42,5 +44,8 @@ echo "vm.max_map_count=262144" >> /etc/sysctl.conf
 mkdir -p /var/cache/ccache
 chmod 777 /var/cache/ccache
 
-echo "Post-bootstrap configuration completed at $(date)"
+echo "Base infrastructure node post-bootstrap completed at $(date)"
+echo "Node taint: CriticalAddonsOnly=true:NoSchedule"
+echo "This node will only run system components with matching tolerations"
+
 

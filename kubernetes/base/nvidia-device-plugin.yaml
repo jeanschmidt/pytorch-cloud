@@ -19,7 +19,12 @@ spec:
         name: nvidia-device-plugin-ds
     spec:
       tolerations:
-      # This toleration allows the daemonset to run on GPU nodes
+      # Tolerate base infrastructure node taints
+      - key: CriticalAddonsOnly
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+      # Tolerate GPU node taints (device plugin may run on GPU nodes)
       - key: nvidia.com/gpu
         operator: Exists
         effect: NoSchedule

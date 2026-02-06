@@ -3,3 +3,15 @@ variable "aws_region" {
   type        = string
   default     = "us-west-2"
 }
+
+variable "base_node_count" {
+  description = "Number of base infrastructure nodes (fixed size)"
+  type        = number
+  default     = 10
+}
+
+variable "base_node_instance_type" {
+  description = "Instance type for base infrastructure nodes"
+  type        = string
+  default     = "m5.xlarge"
+}
