@@ -214,10 +214,10 @@ tf-destroy env: _ensure-mise
 # Validate tofu configuration
 tf-validate: _ensure-mise
     tofu fmt -check -recursive terraform/
-    @for dir in terraform/environments/*/; do \
-        echo "Validating $$dir..."; \
-        (cd "$$dir" && tofu init -backend=false && tofu validate); \
-    done
+    @bash -c 'for dir in terraform/environments/*/; do \
+        echo "Validating $dir..."; \
+        (cd "$dir" && tofu init -backend=false && tofu validate); \
+    done'
 
 # ============================================================================
 # DOCKER
@@ -229,11 +229,11 @@ docker-build image tag="latest":
 
 # Build all docker images
 docker-build-all:
-    @for dir in docker/*/; do \
-        name=$$(basename "$$dir"); \
-        echo "Building $$name..."; \
-        just docker-build "$$name"; \
-    done
+    @bash -c 'for dir in docker/*/; do \
+        name=$$(basename "$dir"); \
+        echo "Building $name..."; \
+        just docker-build "$name"; \
+    done'
 
 # Push docker image to registry (provide full registry path)
 docker-push image tag="latest":
@@ -257,11 +257,11 @@ k8s-diff env:
 
 # Validate kubernetes manifests
 k8s-validate:
-    @for dir in kubernetes/overlays/*/; do \
-        env=$$(basename "$$dir"); \
-        echo "Validating $$env..."; \
-        kubectl apply --dry-run=server -k "$$dir"; \
-    done
+    @bash -c 'for dir in kubernetes/overlays/*/; do \
+        env=$$(basename "$dir"); \
+        echo "Validating $env..."; \
+        kubectl apply --dry-run=server -k "$dir"; \
+    done'
 
 # ============================================================================
 # HELM
@@ -304,17 +304,21 @@ ami-build name:
 
 # Validate Packer templates
 ami-validate:
-    @for dir in ami/*/; do \
-        echo "Validating $$dir..."; \
-        (cd "$$dir" && packer validate .); \
-    done
+    @bash -c 'for dir in ami/*/; do \
+        echo "Validating $dir..."; \
+        (cd "$dir" && packer validate .); \
+    done'
 
 # ============================================================================
 # CI HELPERS
 # ============================================================================
 
-# Run all checks (for CI)
-ci-check: lint tf-validate
+# Run all static validation (linting + Terraform validation)
+validate: lint tf-validate ami-validate k8s-validate
+    @echo "✓ All validation passed"
+
+# Run all checks (for CI) - alias for validate
+ci-check: validate
     @echo "✓ All CI checks passed"
 
 # ============================================================================
