@@ -43,12 +43,15 @@ clean:
     rm -rf .venv/
     rm -rf .terraform.d/
     find . -type d -name ".terraform" -exec rm -rf {} + 2>/dev/null || true
+    find . -type f -name ".terraform.lock.hcl" -delete 2>/dev/null || true
+    find . -type f -name "terraform.tfstate" -delete 2>/dev/null || true
+    find . -type f -name "terraform.tfstate.backup" -delete 2>/dev/null || true
     find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
     find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
     find . -type f -name "*.tfplan" -delete 2>/dev/null || true
     @echo "Cleaning non-whitelisted markdown files..."
     @find . -type f -name "*.md" ! -path "./.git/*" | while IFS= read -r f; do if git check-ignore -q "$f" 2>/dev/null; then rm -f "$f"; fi; done
-    @echo "✓ Cleaned"
+    @echo "✓ Cleaned all caches and generated files"
 
 # ============================================================================
 # DEVELOPMENT

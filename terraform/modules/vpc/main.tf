@@ -51,6 +51,9 @@ resource "aws_subnet" "public" {
       "kubernetes.io/role/elb" = "1"
     }
   )
+
+  # Force sequential creation to avoid AWS eventual consistency issues
+  depends_on = [aws_vpc.this, aws_internet_gateway.this]
 }
 
 # Private Subnets
@@ -68,6 +71,9 @@ resource "aws_subnet" "private" {
       "kubernetes.io/role/internal-elb" = "1"
     }
   )
+
+  # Force sequential creation to avoid AWS eventual consistency issues
+  depends_on = [aws_vpc.this, aws_internet_gateway.this]
 }
 
 # Elastic IPs for NAT Gateways

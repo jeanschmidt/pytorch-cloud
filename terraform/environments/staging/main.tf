@@ -11,7 +11,7 @@ terraform {
   backend "s3" {
     bucket         = "pytorch-cloud-terraform-state-staging"
     key            = "staging/terraform.tfstate"
-    region         = "us-west-2"
+    region         = "us-west-2" # S3 bucket location (independent of infrastructure)
     dynamodb_table = "pytorch-cloud-terraform-locks"
     encrypt        = true
   }
@@ -35,7 +35,8 @@ data "aws_availability_zones" "available" {
 
 locals {
   cluster_name = "pytorch-arc-staging"
-  azs          = slice(data.aws_availability_zones.available.names, 0, 3)
+  # Use min(3, available AZs) to handle regions with fewer than 3 AZs
+  azs = slice(data.aws_availability_zones.available.names, 0, min(length(data.aws_availability_zones.available.names), 3))
 
   tags = {
     Environment = "staging"
@@ -50,10 +51,12 @@ module "vpc" {
   name = "${local.cluster_name}-vpc"
   cidr = "10.0.0.0/16" # 65,536 IPs total
   azs  = local.azs
-  # Private subnets: /18 = 16,384 IPs each (48k total for nodes/pods)
-  private_subnets = ["10.0.0.0/18", "10.0.64.0/18", "10.0.128.0/18"]
-  # Public subnets: /24 = 256 IPs each (sufficient for load balancers)
-  public_subnets     = ["10.0.192.0/24", "10.0.193.0/24", "10.0.194.0/24"]
+  # Private subnets: Dynamic sizing based on AZ count
+  # For 2 AZs: Use /18 (16k IPs each) to leave room for public subnets
+  # For 3 AZs: Use /18 (16k IPs each)
+  private_subnets = length(local.azs) == 2 ? ["10.0.0.0/18", "10.0.64.0/18"] : ["10.0.0.0/18", "10.0.64.0/18", "10.0.128.0/18"]
+  # Public subnets: /24 = 256 IPs each, placed at end of address space
+  public_subnets     = length(local.azs) == 2 ? ["10.0.192.0/24", "10.0.193.0/24"] : ["10.0.192.0/24", "10.0.193.0/24", "10.0.194.0/24"]
   enable_nat_gateway = true
   single_nat_gateway = true # Cost optimization for staging
 
