@@ -206,33 +206,40 @@ lint-packer:
 
 # Full deployment: infrastructure + kubernetes + helm + docker images
 deploy env registry="": _auto-setup
-    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo "🚀 FULL DEPLOYMENT - {{env}} environment"
-    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo ""
-    @echo "This will:"
-    @echo "  1. Initialize and deploy Terraform infrastructure"
-    @echo "  2. Configure kubectl access to the cluster"
-    @echo "  3. Deploy Kubernetes base resources (namespaces, NVIDIA plugin)"
-    @echo "  4. Install Helm charts (ARC controller and runner sets)"
-    @if [ -n "{{registry}}" ]; then echo "  5. Build and push Docker images to {{registry}}"; fi
-    @echo ""
-    @read -p "Continue? [y/N] " -n 1 -r; echo; [[ $$REPLY =~ ^[Yy]$$ ]] || exit 1
-    @echo ""
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🚀 FULL DEPLOYMENT - {{env}} environment"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "This will:"
+    echo "  1. Initialize and deploy Terraform infrastructure"
+    echo "  2. Configure kubectl access to the cluster"
+    echo "  3. Deploy Kubernetes base resources (namespaces, NVIDIA plugin)"
+    echo "  4. Install Helm charts (ARC controller and runner sets)"
+    if [ -n "{{registry}}" ]; then echo "  5. Build and push Docker images to {{registry}}"; fi
+    echo ""
+    read -p "Continue? [y/N] " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "❌ Deployment cancelled"
+        exit 1
+    fi
+    echo ""
     just _deploy-infrastructure {{env}}
     just _deploy-kubernetes {{env}}
     just _deploy-helm {{env}}
-    @if [ -n "{{registry}}" ]; then just _deploy-docker {{registry}}; fi
-    @echo ""
-    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo "✅ DEPLOYMENT COMPLETE - {{env}}"
-    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo ""
-    @echo "Cluster info:"
-    @kubectl cluster-info
-    @echo ""
-    @echo "Runner pods:"
-    @kubectl get pods -n arc-runners
+    if [ -n "{{registry}}" ]; then just _deploy-docker {{registry}}; fi
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "✅ DEPLOYMENT COMPLETE - {{env}}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "Cluster info:"
+    kubectl cluster-info
+    echo ""
+    echo "Runner pods:"
+    kubectl get pods -n arc-runners
 
 # Deploy without confirmation prompt (for CI/CD)
 deploy-noninteractive env registry="": _auto-setup
@@ -245,32 +252,38 @@ deploy-noninteractive env registry="": _auto-setup
 
 # Destroy entire environment (with confirmation)
 destroy env: _auto-setup
-    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo "⚠️  DESTROY ENVIRONMENT - {{env}}"
-    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo ""
-    @echo "This will PERMANENTLY DELETE:"
-    @echo "  - EKS Cluster: pytorch-arc-{{env}}"
-    @echo "  - VPC and all networking"
-    @echo "  - All node groups"
-    @echo "  - All Kubernetes resources"
-    @echo "  - All Helm releases"
-    @echo ""
-    @echo "Type the environment name to confirm: {{env}}"
-    @read -p "> " confirm; [ "$$confirm" = "{{env}}" ] || { echo "❌ Confirmation failed"; exit 1; }
-    @echo ""
-    @echo "Uninstalling Helm releases..."
-    @helm uninstall arc-gpu-runner-set -n arc-runners 2>/dev/null || true
-    @helm uninstall arc-runner-set -n arc-runners 2>/dev/null || true
-    @helm uninstall arc -n arc-systems 2>/dev/null || true
-    @echo ""
-    @echo "Deleting Kubernetes resources..."
-    @kubectl delete -k kubernetes/overlays/{{env}}/ || true
-    @echo ""
-    @echo "Destroying Terraform infrastructure..."
-    @cd terraform/environments/{{env}} && tofu destroy -auto-approve
-    @echo ""
-    @echo "✅ Environment {{env}} destroyed"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "⚠️  DESTROY ENVIRONMENT - {{env}}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "This will PERMANENTLY DELETE:"
+    echo "  - EKS Cluster: pytorch-arc-{{env}}"
+    echo "  - VPC and all networking"
+    echo "  - All node groups"
+    echo "  - All Kubernetes resources"
+    echo "  - All Helm releases"
+    echo ""
+    echo "Type the environment name to confirm: {{env}}"
+    read -p "> " confirm
+    if [ "$confirm" != "{{env}}" ]; then
+        echo "❌ Confirmation failed"
+        exit 1
+    fi
+    echo ""
+    echo "Uninstalling Helm releases..."
+    helm uninstall arc-gpu-runner-set -n arc-runners 2>/dev/null || true
+    helm uninstall arc-runner-set -n arc-runners 2>/dev/null || true
+    helm uninstall arc -n arc-systems 2>/dev/null || true
+    echo ""
+    echo "Deleting Kubernetes resources..."
+    kubectl delete -k kubernetes/overlays/{{env}}/ || true
+    echo ""
+    echo "Destroying Terraform infrastructure..."
+    cd terraform/environments/{{env}} && tofu destroy -auto-approve
+    echo ""
+    echo "✅ Environment {{env}} destroyed"
 
 # ============================================================================
 # TERRAFORM / OPENTOFU

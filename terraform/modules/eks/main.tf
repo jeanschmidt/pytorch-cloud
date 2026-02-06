@@ -180,9 +180,9 @@ resource "aws_eks_node_group" "base" {
 
 # Launch template for base infrastructure nodes
 resource "aws_launch_template" "base" {
-  name_prefix   = "${var.cluster_name}-base-"
-  image_id      = "" # Empty = use EKS-optimized AMI
-  instance_type = var.base_node_instance_type
+  name_prefix = "${var.cluster_name}-base-"
+  image_id    = "" # Empty = use EKS-optimized AMI
+  # instance_type removed - specified in node group instead
 
   # User data calls EKS bootstrap, then runs our post-bootstrap script
   user_data = base64encode(templatefile("${path.module}/user-data-base.sh.tpl", {
@@ -273,13 +273,11 @@ resource "aws_eks_node_group" "gpu" {
 
 # Launch template for GPU nodes
 resource "aws_launch_template" "gpu" {
-  name_prefix   = "${var.cluster_name}-gpu-"
-  image_id      = "" # Empty = use EKS GPU-optimized AMI
-  instance_type = "g4dn.xlarge"
+  name_prefix = "${var.cluster_name}-gpu-"
+  image_id    = "" # Empty = use EKS GPU-optimized AMI
+  # instance_type removed - specified in node group instead
 
-  # User data calls EKS bootstrap, then runs our post-bootstrap script
   # User data calls EKS bootstrap, then runs our post-bootstrap GPU script
-  # User data calls EKS bootstrap, then runs our post-bootstrap script
   user_data = base64encode(templatefile("${path.module}/user-data-gpu.sh.tpl", {
     cluster_name          = aws_eks_cluster.this.name
     post_bootstrap_script = file("${path.root}/../../../scripts/bootstrap/eks-gpu-bootstrap.sh")

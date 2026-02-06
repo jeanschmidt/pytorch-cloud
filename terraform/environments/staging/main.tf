@@ -9,13 +9,11 @@ terraform {
   }
 
   backend "s3" {
-    # Configure via backend config file or CLI:
-    # tofu init -backend-config="bucket=pytorch-cloud-terraform-state-staging"
-    # bucket         = "pytorch-cloud-terraform-state-staging"
-    # key            = "staging/terraform.tfstate"
-    # region         = "us-west-2"
-    # dynamodb_table = "pytorch-cloud-terraform-locks"
-    # encrypt        = true
+    bucket         = "pytorch-cloud-terraform-state-staging"
+    key            = "staging/terraform.tfstate"
+    region         = "us-west-2"
+    dynamodb_table = "pytorch-cloud-terraform-locks"
+    encrypt        = true
   }
 }
 
