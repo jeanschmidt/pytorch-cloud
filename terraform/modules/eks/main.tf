@@ -187,7 +187,7 @@ resource "aws_launch_template" "base" {
   # User data calls EKS bootstrap, then runs our post-bootstrap script
   user_data = base64encode(templatefile("${path.module}/user-data-base.sh.tpl", {
     cluster_name          = aws_eks_cluster.this.name
-    post_bootstrap_script = file("${path.module}/../../scripts/bootstrap/eks-base-bootstrap.sh")
+    post_bootstrap_script = file("${path.root}/../../../scripts/bootstrap/eks-base-bootstrap.sh")
   }))
 
   block_device_mappings {
@@ -277,9 +277,11 @@ resource "aws_launch_template" "gpu" {
   instance_type = "g4dn.xlarge"
 
   # User data calls EKS bootstrap, then runs our post-bootstrap script
+  # User data calls EKS bootstrap, then runs our post-bootstrap GPU script
+  # User data calls EKS bootstrap, then runs our post-bootstrap script
   user_data = base64encode(templatefile("${path.module}/user-data-gpu.sh.tpl", {
     cluster_name          = aws_eks_cluster.this.name
-    post_bootstrap_script = file("${path.module}/../../scripts/bootstrap/eks-gpu-bootstrap.sh")
+    post_bootstrap_script = file("${path.root}/../../../scripts/bootstrap/eks-gpu-bootstrap.sh")
   }))
 
   block_device_mappings {
