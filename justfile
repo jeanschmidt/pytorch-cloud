@@ -61,8 +61,8 @@ lint-fix-tofu:
 lint-shell:
     @echo "→ Linting shell scripts..."
     @if command -v shellcheck >/dev/null 2>&1; then \
-        find scripts/ -type f -name "*.sh" -print0 | xargs -0 shellcheck; \
-        find terraform/modules/*/user-data-*.sh.tpl -type f -print0 2>/dev/null | xargs -0 shellcheck -x 2>/dev/null || true; \
+        shellcheck scripts/bootstrap/*.sh scripts/hooks/*.sh; \
+        shellcheck -x terraform/modules/eks/user-data-*.sh.tpl terraform/modules/gpu/user-data-*.sh.tpl 2>/dev/null || true; \
     else \
         echo "  ❌ ERROR: shellcheck not found."; \
         echo "  Install via mise: mise install shellcheck"; \
@@ -74,7 +74,7 @@ lint-shell:
 lint-fix-shell:
     @echo "→ Formatting shell scripts..."
     @if command -v shfmt >/dev/null 2>&1; then \
-        find scripts/ -type f -name "*.sh" -print0 | xargs -0 shfmt -w; \
+        shfmt -w scripts/bootstrap/*.sh scripts/hooks/*.sh 2>/dev/null || true; \
     else \
         echo "  ❌ ERROR: shfmt not found."; \
         echo "  Install via mise: mise install shfmt"; \
@@ -98,10 +98,12 @@ lint-yaml:
 # Auto-fix YAML formatting (limited - yamllint doesn't auto-fix much)
 lint-fix-yaml:
     @echo "→ Checking YAML files..."
-    @if command -v yamllint >/dev/null 2>&1; then \
+    @if [ -f ".venv/bin/yamllint" ]; then \
+        .venv/bin/yamllint kubernetes/ helm/ .github/ || true; \
+    elif command -v yamllint >/dev/null 2>&1; then \
         yamllint kubernetes/ helm/ .github/ || true; \
     else \
-        echo "  ⚠️  yamllint not installed. Skipping..."; \
+        echo "  (yamllint not installed, skipping)"; \
     fi
 
 # Lint Dockerfiles
@@ -133,16 +135,16 @@ lint-python:
     @echo "→ Linting Python code..."
     @if [ -d "python/" ]; then \
         if [ -f ".venv/bin/ruff" ]; then \
-            cd python/ && ../.venv/bin/ruff check .; \
-            cd python/ && ../.venv/bin/ruff format --check .; \
+            (cd python/ && ../.venv/bin/ruff check .); \
+            (cd python/ && ../.venv/bin/ruff format --check .); \
             if [ -f "../.venv/bin/mypy" ]; then \
-                cd python/ && ../.venv/bin/mypy . || true; \
+                (cd python/ && ../.venv/bin/mypy . || true); \
             fi; \
         elif command -v ruff >/dev/null 2>&1; then \
-            cd python/ && ruff check .; \
-            cd python/ && ruff format --check .; \
+            (cd python/ && ruff check .); \
+            (cd python/ && ruff format --check .); \
             if command -v mypy >/dev/null 2>&1; then \
-                cd python/ && mypy . || true; \
+                (cd python/ && mypy . || true); \
             fi; \
         else \
             echo "  ❌ ERROR: ruff not found in project venv or system."; \
@@ -158,11 +160,11 @@ lint-fix-python:
     @echo "→ Formatting Python code..."
     @if [ -d "python/" ]; then \
         if [ -f ".venv/bin/ruff" ]; then \
-            cd python/ && ../.venv/bin/ruff check --fix .; \
-            cd python/ && ../.venv/bin/ruff format .; \
+            (cd python/ && ../.venv/bin/ruff check --fix .); \
+            (cd python/ && ../.venv/bin/ruff format .); \
         elif command -v ruff >/dev/null 2>&1; then \
-            cd python/ && ruff check --fix .; \
-            cd python/ && ruff format .; \
+            (cd python/ && ruff check --fix .); \
+            (cd python/ && ruff format .); \
         else \
             echo "  ❌ ERROR: ruff not found in project venv or system."; \
             echo "  Run: just setup"; \

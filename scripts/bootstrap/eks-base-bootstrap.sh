@@ -11,7 +11,7 @@ set -euo pipefail
 echo "Starting base infrastructure node post-bootstrap at $(date)"
 
 # Configure Docker daemon
-cat > /etc/docker/daemon.json <<'EOF'
+cat >/etc/docker/daemon.json <<'EOF'
 {
   "log-driver": "json-file",
   "log-opts": {
@@ -27,18 +27,18 @@ systemctl restart docker
 
 # Install useful tools
 yum install -y \
-    htop \
-    iotop \
-    sysstat \
-    vim \
-    wget \
-    curl \
-    git \
-    ccache
+	htop \
+	iotop \
+	sysstat \
+	vim \
+	wget \
+	curl \
+	git \
+	ccache
 
 # Configure node for infrastructure workloads
 sysctl -w vm.max_map_count=262144
-echo "vm.max_map_count=262144" >> /etc/sysctl.conf
+echo "vm.max_map_count=262144" >>/etc/sysctl.conf
 
 # Set up ccache directory
 mkdir -p /var/cache/ccache
@@ -47,5 +47,3 @@ chmod 777 /var/cache/ccache
 echo "Base infrastructure node post-bootstrap completed at $(date)"
 echo "Node taint: CriticalAddonsOnly=true:NoSchedule"
 echo "This node will only run system components with matching tolerations"
-
-

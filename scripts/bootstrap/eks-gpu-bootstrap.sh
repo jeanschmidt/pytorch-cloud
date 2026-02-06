@@ -9,7 +9,7 @@ set -euo pipefail
 # This script contains post-bootstrap GPU configuration only
 
 # Configure Docker daemon with NVIDIA runtime
-cat > /etc/docker/daemon.json <<'EOF'
+cat >/etc/docker/daemon.json <<'EOF'
 {
   "default-runtime": "nvidia",
   "runtimes": {
@@ -31,26 +31,26 @@ EOF
 systemctl restart docker
 
 # Install nvidia-docker2 if not present
-if ! command -v nvidia-container-runtime &> /dev/null; then
-    yum install -y nvidia-docker2
-    systemctl restart docker
+if ! command -v nvidia-container-runtime &>/dev/null; then
+	yum install -y nvidia-docker2
+	systemctl restart docker
 fi
 
 # Install useful tools
 yum install -y \
-    htop \
-    iotop \
-    sysstat \
-    vim \
-    wget \
-    curl \
-    git \
-    ccache \
-    nvtop || true
+	htop \
+	iotop \
+	sysstat \
+	vim \
+	wget \
+	curl \
+	git \
+	ccache \
+	nvtop || true
 
 # Configure node for CI workloads
 sysctl -w vm.max_map_count=262144
-echo "vm.max_map_count=262144" >> /etc/sysctl.conf
+echo "vm.max_map_count=262144" >>/etc/sysctl.conf
 
 # Set up ccache directory
 mkdir -p /var/cache/ccache
@@ -63,4 +63,3 @@ nvidia-smi -pm 1 || true
 nvidia-smi || echo "WARNING: nvidia-smi failed"
 
 echo "Post-bootstrap GPU configuration completed at $(date)"
-
