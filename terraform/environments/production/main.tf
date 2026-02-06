@@ -50,10 +50,12 @@ module "vpc" {
   source = "../../modules/vpc"
 
   name               = "${local.cluster_name}-vpc"
-  cidr               = "10.1.0.0/16"
+  cidr               = "10.1.0.0/16"  # 65,536 IPs total
   azs                = local.azs
-  private_subnets    = ["10.1.1.0/24", "10.1.2.0/24", "10.1.3.0/24"]
-  public_subnets     = ["10.1.101.0/24", "10.1.102.0/24", "10.1.103.0/24"]
+  # Private subnets: /18 = 16,384 IPs each (48k total for nodes/pods)
+  private_subnets    = ["10.1.0.0/18", "10.1.64.0/18", "10.1.128.0/18"]
+  # Public subnets: /24 = 256 IPs each (sufficient for load balancers)
+  public_subnets     = ["10.1.192.0/24", "10.1.193.0/24", "10.1.194.0/24"]
   enable_nat_gateway = true
   single_nat_gateway = false # High availability for production
 
