@@ -31,6 +31,12 @@ clean:
     find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
     find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
     find . -type f -name "*.tfplan" -delete 2>/dev/null || true
+    @echo "Cleaning non-whitelisted markdown files..."
+    @bash -c 'find . -type f -name "*.md" ! -path "./.git/*" | while IFS= read -r f; do \
+        if git check-ignore -q "$f" 2>/dev/null; then \
+            rm -f "$f"; \
+        fi; \
+    done'
     @echo "✓ Cleaned"
 
 # ============================================================================
