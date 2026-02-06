@@ -18,11 +18,25 @@ default:
 # ============================================================================
 
 # Install all tools and dependencies
-setup: _ensure-mise
-    mise install
-    just _setup-terraform
-    just _setup-linters
-    @echo "✓ Setup complete"
+setup:
+    @just _ensure-mise
+    @just _setup-terraform
+    @just _setup-linters
+    @echo ""
+    @echo "✓ Setup complete!"
+    @echo ""
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo "NOTE: Additional tools for full linting support:"
+    @echo ""
+    @echo "  • shellcheck & shfmt - Shell script linting"
+    @echo "    Install: mise install  (managed via mise.toml)"
+    @echo ""
+    @echo "  • hadolint - Dockerfile linter"
+    @echo "    Install: brew install hadolint"
+    @echo ""
+    @echo "These are optional but recommended for complete linting."
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo ""
 
 # Clean all generated files and caches
 clean:
@@ -41,27 +55,27 @@ clean:
 # ============================================================================
 
 # Run all linting checks
-lint: lint-tofu lint-shell lint-yaml lint-docker lint-helm lint-python
+lint: _auto-setup lint-tofu lint-shell lint-yaml lint-docker lint-helm lint-python
     @echo "✓ All linting passed"
 
 # Auto-fix all linting issues where possible
-lint-fix: lint-fix-tofu lint-fix-shell lint-fix-yaml lint-fix-python
+lint-fix: _auto-setup lint-fix-tofu lint-fix-shell lint-fix-yaml lint-fix-python
     @echo "✓ All auto-fixes applied"
 
 # Lint OpenTofu/Terraform files
-lint-tofu:
+lint-tofu: _auto-setup
     @echo "→ Linting Terraform/OpenTofu..."
     @mkdir -p .terraform.d/plugin-cache
     tofu fmt -check -recursive terraform/
 
 # Auto-fix OpenTofu/Terraform formatting
-lint-fix-tofu:
+lint-fix-tofu: _auto-setup
     @echo "→ Formatting Terraform/OpenTofu..."
     @mkdir -p .terraform.d/plugin-cache
     tofu fmt -recursive terraform/
 
 # Lint shell scripts
-lint-shell:
+lint-shell: _auto-setup
     @echo "→ Linting shell scripts..."
     @if command -v shellcheck >/dev/null 2>&1; then \
         shellcheck scripts/bootstrap/*.sh scripts/hooks/*.sh; \
@@ -74,7 +88,7 @@ lint-shell:
     fi
 
 # Auto-fix shell script formatting
-lint-fix-shell:
+lint-fix-shell: _auto-setup
     @echo "→ Formatting shell scripts..."
     @if command -v shfmt >/dev/null 2>&1; then \
         shfmt -w scripts/bootstrap/*.sh scripts/hooks/*.sh 2>/dev/null || true; \
@@ -86,7 +100,7 @@ lint-fix-shell:
     fi
 
 # Lint YAML files (Kubernetes, Helm, workflows)
-lint-yaml:
+lint-yaml: _auto-setup
     @echo "→ Linting YAML files..."
     @if [ -f ".venv/bin/yamllint" ]; then \
         .venv/bin/yamllint kubernetes/ helm/ .github/; \
@@ -99,7 +113,7 @@ lint-yaml:
     fi
 
 # Auto-fix YAML formatting (limited - yamllint doesn't auto-fix much)
-lint-fix-yaml:
+lint-fix-yaml: _auto-setup
     @echo "→ Checking YAML files..."
     @if [ -f ".venv/bin/yamllint" ]; then \
         .venv/bin/yamllint kubernetes/ helm/ .github/ || true; \
@@ -110,7 +124,7 @@ lint-fix-yaml:
     fi
 
 # Lint Dockerfiles
-lint-docker:
+lint-docker: _auto-setup
     @echo "→ Linting Dockerfiles..."
     @if command -v hadolint >/dev/null 2>&1; then \
         for f in docker/*/Dockerfile; do [ -f "$$f" ] && hadolint "$$f" || true; done; \
@@ -123,7 +137,7 @@ lint-docker:
     fi
 
 # Lint Helm charts
-lint-helm:
+lint-helm: _auto-setup
     @echo "→ Checking Helm values files..."
     @echo "  Note: helm/ contains values files for external OCI charts (not full charts)"
     @echo "  YAML syntax is validated by 'just lint-yaml'"
@@ -134,7 +148,7 @@ lint-helm:
     fi
 
 # Lint Python code (when python code exists)
-lint-python:
+lint-python: _auto-setup
     @echo "→ Linting Python code..."
     @if [ -d "python/" ]; then \
         if [ -f ".venv/bin/ruff" ]; then \
@@ -159,7 +173,7 @@ lint-python:
     fi
 
 # Auto-fix Python formatting
-lint-fix-python:
+lint-fix-python: _auto-setup
     @echo "→ Formatting Python code..."
     @if [ -d "python/" ]; then \
         if [ -f ".venv/bin/ruff" ]; then \
@@ -193,23 +207,23 @@ lint-packer:
 # ============================================================================
 
 # Initialize tofu for an environment
-tf-init env: _ensure-mise
+tf-init env: _auto-setup
     cd terraform/environments/{{env}} && tofu init
 
 # Plan tofu changes
-tf-plan env: _ensure-mise
+tf-plan env: _auto-setup
     cd terraform/environments/{{env}} && tofu plan -out=tfplan
 
 # Apply tofu changes
-tf-apply env: _ensure-mise
+tf-apply env: _auto-setup
     cd terraform/environments/{{env}} && tofu apply tfplan
 
 # Destroy tofu resources (use with caution!)
-tf-destroy env: _ensure-mise
+tf-destroy env: _auto-setup
     cd terraform/environments/{{env}} && tofu destroy
 
 # Validate tofu configuration
-tf-validate: _ensure-mise
+tf-validate: _auto-setup
     tofu fmt -check -recursive terraform/
     @for dir in terraform/environments/*/; do echo "Validating $dir..."; (cd "$dir" && tofu init -backend=false && tofu validate); done
 
@@ -315,42 +329,27 @@ ci-check: validate
 # PRIVATE RECIPES (not shown in --list)
 # ============================================================================
 
+# Automatically run setup if needed (idempotent, fast when already done)
+_auto-setup:
+    @just _ensure-mise
+    @just _setup-terraform
+    @just _setup-linters
+
 _ensure-mise:
     @command -v mise > /dev/null || { echo "❌ mise not found. Install: https://mise.jdx.dev"; exit 1; }
-    @mise install --quiet
+    @mise install --quiet 2>/dev/null || true
 
 _setup-terraform:
-    mkdir -p .terraform.d/plugin-cache
-    @echo "✓ OpenTofu/Terraform cache ready"
-    @echo "⚠️  REMINDER: Use 'tofu' commands, not 'terraform'"
+    @if [ ! -d .terraform.d/plugin-cache ]; then \
+        mkdir -p .terraform.d/plugin-cache; \
+        echo "✓ OpenTofu/Terraform cache created"; \
+    fi
 
 _setup-linters:
-    @echo "→ Setting up project-local linting environment..."
-    @echo ""
-    @echo "Installing Python linters via uv (project-local)..."
-    @command -v uv > /dev/null || { echo "❌ ERROR: 'uv' not found. Install: https://docs.astral.sh/uv/"; exit 1; }
-    uv venv .venv --python 3.12
-    uv pip install yamllint ruff mypy
-    @echo ""
-    @echo "✓ Python linters installed in .venv/"
-    @echo ""
-    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo "NOTE: The following tools MUST be installed by you:"
-    @echo ""
-    @echo "  • shellcheck - Shell script linter"
-    @echo "    Install: mise install shellcheck  (or: brew install shellcheck)"
-    @echo ""
-    @echo "  • shfmt - Shell script formatter"
-    @echo "    Install: mise install shfmt  (or: brew install shfmt)"
-    @echo ""
-    @echo "  • hadolint - Dockerfile linter"
-    @echo "    Install: brew install hadolint"
-    @echo "    Or: https://github.com/hadolint/hadolint#install"
-    @echo ""
-    @echo "These tools cannot be installed project-locally."
-    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo ""
-    @echo "Quick install (recommended):"
-    @echo "  mise install  # Installs shellcheck + shfmt project-locally via mise"
-    @echo "  brew install hadolint  # System install (no project-local option)"
-    @echo ""
+    @if [ ! -d .venv ] || [ ! -f .venv/bin/yamllint ]; then \
+        echo "→ Setting up Python linters (first time only)..."; \
+        command -v uv > /dev/null || { echo "❌ ERROR: 'uv' not found. Install: https://docs.astral.sh/uv/"; exit 1; }; \
+        uv venv .venv --python 3.12 --quiet; \
+        uv pip install --quiet yamllint ruff mypy; \
+        echo "✓ Python linters installed in .venv/"; \
+    fi

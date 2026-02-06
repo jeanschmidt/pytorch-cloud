@@ -75,12 +75,23 @@ pytorch-cloud/
 ## Quick Start
 
 ```bash
-# Install project-local dependencies
+# Clone the project
+git clone <repository-url>
+cd pytorch-cloud
+
+# That's it! Just run any command and dependencies will auto-install:
+just validate  # Runs all validation checks (automatically sets up dependencies)
+just lint      # Runs all linters (automatically sets up dependencies)
+just lint-yaml # Individual linters work too
+
+# Or explicitly run setup first (optional):
 just setup
 
-# You'll need to install system tools manually:
-brew install hadolint  # Dockerfile linter
-mise install  # shellcheck, shfmt from mise.toml
+# The first time you run any command, it will:
+# 1. Install mise tools (tofu, kubectl, helm, packer, etc.) from mise.toml
+# 2. Create Python .venv/ and install linters (yamllint, ruff, mypy)
+# 3. Setup Terraform plugin cache
+# Subsequent runs are instant - setup only happens once!
 
 # Deploy infrastructure (staging)
 just tf-init staging
@@ -96,6 +107,31 @@ just k8s-apply staging
 # Build and push custom images
 just docker-build runner-gpu
 just docker-push <ecr-registry>/runner-gpu:latest
+```
+
+### Automatic Dependency Setup
+
+**All `just` commands automatically handle dependencies!**
+
+You don't need to run `just setup` manually - any command you run will:
+1. Check if dependencies are installed
+2. Install missing dependencies automatically (first run only)
+3. Subsequent runs are instant (< 1 second)
+
+This means you can clone the project and immediately run:
+- `just validate` - Validates all code
+- `just lint` - Lints everything  
+- `just lint-shell` - Lint shell scripts only
+- `just tf-plan staging` - Plan Terraform changes
+
+**One-time manual installs** (cannot be project-local):
+```bash
+brew install hadolint  # Dockerfile linter
+```
+
+**Optional tools** (for full linting):
+```bash
+mise install  # Installs shellcheck + shfmt from mise.toml
 ```
 
 ## GPU Support
