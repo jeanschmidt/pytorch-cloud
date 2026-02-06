@@ -74,6 +74,39 @@ pytorch-cloud/
 
 ## Quick Start
 
+### Option 1: Full Automated Deployment (Recommended)
+
+```bash
+# Clone the project
+git clone <repository-url>
+cd pytorch-cloud
+
+# Configure AWS credentials
+export AWS_PROFILE=your-profile  # or use aws configure
+
+# Deploy everything to staging with one command!
+just deploy staging
+
+# The deploy command will:
+# ✅ Auto-install all dependencies (mise, tofu, kubectl, helm, etc.)
+# ✅ Initialize and apply Terraform (VPC, EKS, node groups)
+# ✅ Configure kubectl to access the cluster
+# ✅ Deploy Kubernetes resources (namespaces, NVIDIA plugin)
+# ✅ Install Helm charts (ARC controller, runner sets)
+# ✅ Optionally build and push Docker images
+
+# With Docker registry (builds and pushes images):
+just deploy staging 123456789.dkr.ecr.us-west-2.amazonaws.com/pytorch-cloud
+
+# Deploy to production:
+just deploy production
+
+# Destroy an environment:
+just destroy staging
+```
+
+### Option 2: Manual Step-by-Step Deployment
+
 ```bash
 # Clone the project
 git clone <repository-url>
@@ -82,27 +115,22 @@ cd pytorch-cloud
 # That's it! Just run any command and dependencies will auto-install:
 just validate  # Runs all validation checks (automatically sets up dependencies)
 just lint      # Runs all linters (automatically sets up dependencies)
-just lint-yaml # Individual linters work too
 
-# Or explicitly run setup first (optional):
-just setup
-
-# The first time you run any command, it will:
-# 1. Install mise tools (tofu, kubectl, helm, packer, etc.) from mise.toml
-# 2. Create Python .venv/ and install linters (yamllint, ruff, mypy)
-# 3. Setup Terraform plugin cache
-# Subsequent runs are instant - setup only happens once!
-
-# Deploy infrastructure (staging)
+# Deploy infrastructure step by step:
 just tf-init staging
 just tf-plan staging
 just tf-apply staging
 
-# Install ARC controller
-just helm-install-arc staging
+# Update kubeconfig
+aws eks update-kubeconfig --name pytorch-arc-staging --region us-west-2
 
-# Deploy runners
+# Deploy Kubernetes resources
 just k8s-apply staging
+
+# Install Helm charts
+just helm-install-arc staging
+just helm-install-runners staging
+just helm-install-gpu-runners staging
 
 # Build and push custom images
 just docker-build runner-gpu
@@ -132,6 +160,71 @@ brew install hadolint  # Dockerfile linter
 **Optional tools** (for full linting):
 ```bash
 mise install  # Installs shellcheck + shfmt from mise.toml
+```
+
+## Common Commands
+
+### Deployment
+```bash
+just deploy staging                    # Full deployment to staging
+just deploy production <registry>      # Deploy to production with Docker images
+just deploy-noninteractive staging     # Deploy without prompts (for CI/CD)
+just destroy staging                   # Destroy entire staging environment
+```
+
+### Infrastructure (Terraform/OpenTofu)
+```bash
+just tf-init staging                   # Initialize Terraform
+just tf-plan staging                   # Plan infrastructure changes
+just tf-apply staging                  # Apply infrastructure changes
+just tf-destroy staging                # Destroy infrastructure
+just tf-validate                       # Validate Terraform configuration
+```
+
+### Kubernetes
+```bash
+just k8s-apply staging                 # Apply Kubernetes manifests
+just k8s-delete staging                # Delete Kubernetes resources
+just k8s-diff staging                  # Show diff of changes
+just k8s-validate                      # Validate all manifests (dry-run)
+```
+
+### Helm
+```bash
+just helm-install-arc staging          # Install ARC controller
+just helm-install-runners staging      # Install CPU runner scale set
+just helm-install-gpu-runners staging  # Install GPU runner scale set
+```
+
+### Docker
+```bash
+just docker-build runner-gpu           # Build GPU runner image
+just docker-build-all                  # Build all images
+just docker-push <registry>/runner-gpu:latest  # Push image to registry
+```
+
+### Validation & Linting
+```bash
+just validate                          # Run all validation (lint + tf + ami + k8s)
+just lint                              # Run all linters
+just lint-fix                          # Auto-fix linting issues
+just lint-shell                        # Lint shell scripts
+just lint-yaml                         # Lint YAML files
+just lint-docker                       # Lint Dockerfiles
+```
+
+### AMI Building
+```bash
+just ami-build eks-base                # Build base EKS AMI
+just ami-build eks-gpu                 # Build GPU EKS AMI
+just ami-validate                      # Validate Packer templates
+```
+
+### Utilities
+```bash
+just setup                             # Manually run setup (auto-runs when needed)
+just clean                             # Clean generated files and caches
+just                                   # Show all available commands
 ```
 
 ## GPU Support

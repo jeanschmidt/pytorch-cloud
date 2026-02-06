@@ -49,11 +49,11 @@ locals {
 module "vpc" {
   source = "../../modules/vpc"
 
-  name               = "${local.cluster_name}-vpc"
-  cidr               = "10.0.0.0/16"  # 65,536 IPs total
-  azs                = local.azs
+  name = "${local.cluster_name}-vpc"
+  cidr = "10.0.0.0/16" # 65,536 IPs total
+  azs  = local.azs
   # Private subnets: /18 = 16,384 IPs each (48k total for nodes/pods)
-  private_subnets    = ["10.0.0.0/18", "10.0.64.0/18", "10.0.128.0/18"]
+  private_subnets = ["10.0.0.0/18", "10.0.64.0/18", "10.0.128.0/18"]
   # Public subnets: /24 = 256 IPs each (sufficient for load balancers)
   public_subnets     = ["10.0.192.0/24", "10.0.193.0/24", "10.0.194.0/24"]
   enable_nat_gateway = true

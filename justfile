@@ -201,6 +201,78 @@ lint-packer:
     fi
 
 # ============================================================================
+# DEPLOYMENT
+# ============================================================================
+
+# Full deployment: infrastructure + kubernetes + helm + docker images
+deploy env registry="": _auto-setup
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo "🚀 FULL DEPLOYMENT - {{env}} environment"
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo ""
+    @echo "This will:"
+    @echo "  1. Initialize and deploy Terraform infrastructure"
+    @echo "  2. Configure kubectl access to the cluster"
+    @echo "  3. Deploy Kubernetes base resources (namespaces, NVIDIA plugin)"
+    @echo "  4. Install Helm charts (ARC controller and runner sets)"
+    @if [ -n "{{registry}}" ]; then echo "  5. Build and push Docker images to {{registry}}"; fi
+    @echo ""
+    @read -p "Continue? [y/N] " -n 1 -r; echo; [[ $$REPLY =~ ^[Yy]$$ ]] || exit 1
+    @echo ""
+    just _deploy-infrastructure {{env}}
+    just _deploy-kubernetes {{env}}
+    just _deploy-helm {{env}}
+    @if [ -n "{{registry}}" ]; then just _deploy-docker {{registry}}; fi
+    @echo ""
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo "✅ DEPLOYMENT COMPLETE - {{env}}"
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo ""
+    @echo "Cluster info:"
+    @kubectl cluster-info
+    @echo ""
+    @echo "Runner pods:"
+    @kubectl get pods -n arc-runners
+
+# Deploy without confirmation prompt (for CI/CD)
+deploy-noninteractive env registry="": _auto-setup
+    @echo "🚀 Starting deployment to {{env}}..."
+    @just _deploy-infrastructure {{env}}
+    @just _deploy-kubernetes {{env}}
+    @just _deploy-helm {{env}}
+    @if [ -n "{{registry}}" ]; then just _deploy-docker {{registry}}; fi
+    @echo "✅ Deployment complete"
+
+# Destroy entire environment (with confirmation)
+destroy env: _auto-setup
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo "⚠️  DESTROY ENVIRONMENT - {{env}}"
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo ""
+    @echo "This will PERMANENTLY DELETE:"
+    @echo "  - EKS Cluster: pytorch-arc-{{env}}"
+    @echo "  - VPC and all networking"
+    @echo "  - All node groups"
+    @echo "  - All Kubernetes resources"
+    @echo "  - All Helm releases"
+    @echo ""
+    @echo "Type the environment name to confirm: {{env}}"
+    @read -p "> " confirm; [ "$$confirm" = "{{env}}" ] || { echo "❌ Confirmation failed"; exit 1; }
+    @echo ""
+    @echo "Uninstalling Helm releases..."
+    @helm uninstall arc-gpu-runner-set -n arc-runners 2>/dev/null || true
+    @helm uninstall arc-runner-set -n arc-runners 2>/dev/null || true
+    @helm uninstall arc -n arc-systems 2>/dev/null || true
+    @echo ""
+    @echo "Deleting Kubernetes resources..."
+    @kubectl delete -k kubernetes/overlays/{{env}}/ || true
+    @echo ""
+    @echo "Destroying Terraform infrastructure..."
+    @cd terraform/environments/{{env}} && tofu destroy -auto-approve
+    @echo ""
+    @echo "✅ Environment {{env}} destroyed"
+
+# ============================================================================
 # TERRAFORM / OPENTOFU
 # ⚠️ CRITICAL: These commands use "tofu" (OpenTofu), NOT "terraform"!
 # NEVER run "terraform" commands on this project - it will corrupt the state!
@@ -353,3 +425,85 @@ _setup-linters:
         uv pip install --quiet yamllint ruff mypy; \
         echo "✓ Python linters installed in .venv/"; \
     fi
+
+# Deploy infrastructure (Terraform)
+_deploy-infrastructure env:
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo "📦 STEP 1: Infrastructure (Terraform/OpenTofu)"
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo "Initializing Terraform..."
+    @cd terraform/environments/{{env}} && tofu init
+    @echo ""
+    @echo "Planning infrastructure changes..."
+    @cd terraform/environments/{{env}} && tofu plan -out=tfplan
+    @echo ""
+    @echo "Applying infrastructure..."
+    @cd terraform/environments/{{env}} && tofu apply tfplan
+    @echo ""
+    @echo "Updating kubeconfig..."
+    @aws eks update-kubeconfig --name pytorch-arc-{{env}} --region $$(cd terraform/environments/{{env}} && tofu output -raw aws_region 2>/dev/null || echo "us-west-2")
+    @echo "✅ Infrastructure deployed"
+
+# Deploy Kubernetes resources
+_deploy-kubernetes env:
+    @echo ""
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo "☸️  STEP 2: Kubernetes Resources"
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo "Applying Kubernetes manifests for {{env}}..."
+    @kubectl apply -k kubernetes/overlays/{{env}}/
+    @echo ""
+    @echo "Waiting for NVIDIA device plugin to be ready..."
+    @kubectl rollout status daemonset/nvidia-device-plugin-daemonset -n kube-system --timeout=5m || true
+    @echo "✅ Kubernetes resources deployed"
+
+# Deploy Helm charts
+_deploy-helm env:
+    @echo ""
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo "⎈  STEP 3: Helm Charts"
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo "Installing ARC controller..."
+    @helm upgrade --install arc \
+        --namespace arc-systems \
+        --create-namespace \
+        -f helm/arc/values.yaml \
+        -f helm/arc/values-{{env}}.yaml \
+        oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller \
+        --wait
+    @echo ""
+    @echo "Installing CPU runner scale set..."
+    @helm upgrade --install arc-runner-set \
+        --namespace arc-runners \
+        --create-namespace \
+        -f helm/arc-runners/values.yaml \
+        -f helm/arc-runners/values-{{env}}.yaml \
+        oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+        --wait
+    @echo ""
+    @echo "Installing GPU runner scale set..."
+    @helm upgrade --install arc-gpu-runner-set \
+        --namespace arc-runners \
+        --create-namespace \
+        -f helm/arc-gpu-runners/values.yaml \
+        -f helm/arc-gpu-runners/values-{{env}}.yaml \
+        oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+        --wait
+    @echo "✅ Helm charts deployed"
+
+# Build and push Docker images
+_deploy-docker registry:
+    @echo ""
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo "🐳 STEP 4: Docker Images"
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo "Building and pushing Docker images to {{registry}}..."
+    @for dir in docker/*/; do \
+        name=$$(basename "$dir"); \
+        echo ""; \
+        echo "Building $name..."; \
+        docker build -t {{registry}}/$name:latest -f "$dir/Dockerfile" "$dir"; \
+        echo "Pushing $name..."; \
+        docker push {{registry}}/$name:latest; \
+    done
+    @echo "✅ Docker images built and pushed"
