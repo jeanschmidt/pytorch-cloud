@@ -244,7 +244,8 @@ resource "aws_eks_node_group" "gpu" {
     "nvidia.com/gpu" = "true"
   }
 
-  taints {
+  # Taint GPU nodes to only run GPU workloads
+  taint {
     key    = "nvidia.com/gpu"
     value  = "true"
     effect = "NO_SCHEDULE"

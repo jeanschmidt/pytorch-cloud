@@ -6,7 +6,8 @@
 # NEVER run "terraform" commands directly - use these just commands or "tofu" directly.
 
 set dotenv-load := true
-set shell := ["bash", "-euo", "pipefail", "-c"]
+# Use mise exec to ensure all commands run with mise tools available
+set shell := ["mise", "exec", "--", "bash", "-euo", "pipefail", "-c"]
 
 # Default recipe: show help
 default:
@@ -32,11 +33,7 @@ clean:
     find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
     find . -type f -name "*.tfplan" -delete 2>/dev/null || true
     @echo "Cleaning non-whitelisted markdown files..."
-    @bash -c 'find . -type f -name "*.md" ! -path "./.git/*" | while IFS= read -r f; do \
-        if git check-ignore -q "$f" 2>/dev/null; then \
-            rm -f "$f"; \
-        fi; \
-    done'
+    @find . -type f -name "*.md" ! -path "./.git/*" | while IFS= read -r f; do if git check-ignore -q "$f" 2>/dev/null; then rm -f "$f"; fi; done
     @echo "✓ Cleaned"
 
 # ============================================================================
@@ -214,10 +211,7 @@ tf-destroy env: _ensure-mise
 # Validate tofu configuration
 tf-validate: _ensure-mise
     tofu fmt -check -recursive terraform/
-    @bash -c 'for dir in terraform/environments/*/; do \
-        echo "Validating $dir..."; \
-        (cd "$dir" && tofu init -backend=false && tofu validate); \
-    done'
+    @for dir in terraform/environments/*/; do echo "Validating $dir..."; (cd "$dir" && tofu init -backend=false && tofu validate); done
 
 # ============================================================================
 # DOCKER
@@ -229,11 +223,7 @@ docker-build image tag="latest":
 
 # Build all docker images
 docker-build-all:
-    @bash -c 'for dir in docker/*/; do \
-        name=$$(basename "$dir"); \
-        echo "Building $name..."; \
-        just docker-build "$name"; \
-    done'
+    @for dir in docker/*/; do name=$$(basename "$dir"); echo "Building $name..."; just docker-build "$name"; done
 
 # Push docker image to registry (provide full registry path)
 docker-push image tag="latest":
@@ -257,11 +247,13 @@ k8s-diff env:
 
 # Validate kubernetes manifests
 k8s-validate:
-    @bash -c 'for dir in kubernetes/overlays/*/; do \
-        env=$$(basename "$dir"); \
-        echo "Validating $env..."; \
-        kubectl apply --dry-run=server -k "$dir"; \
-    done'
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for dir in kubernetes/overlays/*/; do
+        env=$(basename "$dir")
+        echo "Validating $env..."
+        kubectl apply --dry-run=server -k "$dir"
+    done
 
 # ============================================================================
 # HELM
@@ -304,10 +296,8 @@ ami-build name:
 
 # Validate Packer templates
 ami-validate:
-    @bash -c 'for dir in ami/*/; do \
-        echo "Validating $dir..."; \
-        (cd "$dir" && packer validate .); \
-    done'
+    @command -v packer > /dev/null || { echo "❌ ERROR: packer not found. Install: mise install packer"; exit 1; }
+    @for dir in ami/*/; do echo "Validating $dir..."; (cd "$dir" && packer init . > /dev/null && packer validate .); done
 
 # ============================================================================
 # CI HELPERS
