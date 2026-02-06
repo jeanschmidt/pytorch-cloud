@@ -57,19 +57,30 @@ pytorch-cloud/
 
 ## Prerequisites
 
-- [mise](https://mise.jdx.dev/) - Tool version manager
+- [mise](https://mise.jdx.dev/) - Tool version manager (for project-local tools)
 - [just](https://just.systems/) - Command runner
+- [uv](https://docs.astral.sh/uv/) - Python package manager (for project-local Python tools)
 - **[OpenTofu](https://opentofu.org/)** - Infrastructure as Code (NOT Terraform!)
 - AWS credentials configured
 - Docker installed
 
-**⚠️ CRITICAL**: This project uses **OpenTofu (tofu)**, not Terraform. Using `terraform` commands will corrupt the state file. Always use `tofu` or `just` commands.
+**System Tools** (install yourself via brew/package manager):
+- `hadolint` - Dockerfile linter (cannot be project-local)
+
+**⚠️ CRITICAL**: 
+- This project uses **OpenTofu (tofu)**, not Terraform. Using `terraform` commands will corrupt the state file.
+- All tools are installed **project-locally** to avoid conflicts with other projects you work on.
+- `mise` installs tools in `.mise/` and Python packages go in `.venv/`
 
 ## Quick Start
 
 ```bash
-# Install dependencies
+# Install project-local dependencies
 just setup
+
+# You'll need to install system tools manually:
+brew install hadolint  # Dockerfile linter
+mise install  # shellcheck, shfmt from mise.toml
 
 # Deploy infrastructure (staging)
 just tf-init staging

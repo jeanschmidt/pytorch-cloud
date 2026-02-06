@@ -46,73 +46,140 @@ lint-fix: lint-fix-tofu lint-fix-shell lint-fix-yaml lint-fix-python
     @echo "✓ All auto-fixes applied"
 
 # Lint OpenTofu/Terraform files
-lint-tofu: _ensure-mise
+lint-tofu:
     @echo "→ Linting Terraform/OpenTofu..."
+    @mkdir -p .terraform.d/plugin-cache
     tofu fmt -check -recursive terraform/
 
 # Auto-fix OpenTofu/Terraform formatting
-lint-fix-tofu: _ensure-mise
+lint-fix-tofu:
     @echo "→ Formatting Terraform/OpenTofu..."
+    @mkdir -p .terraform.d/plugin-cache
     tofu fmt -recursive terraform/
 
 # Lint shell scripts
-lint-shell: _ensure-mise
+lint-shell:
     @echo "→ Linting shell scripts..."
-    find scripts/ -type f -name "*.sh" -exec shellcheck {} +
-    find terraform/modules/*/user-data-*.sh.tpl -type f -exec shellcheck -x {} + || true
+    @if command -v shellcheck >/dev/null 2>&1; then \
+        find scripts/ -type f -name "*.sh" -print0 | xargs -0 shellcheck; \
+        find terraform/modules/*/user-data-*.sh.tpl -type f -print0 2>/dev/null | xargs -0 shellcheck -x 2>/dev/null || true; \
+    else \
+        echo "  ❌ ERROR: shellcheck not found."; \
+        echo "  Install via mise: mise install shellcheck"; \
+        echo "  Or system: brew install shellcheck"; \
+        exit 1; \
+    fi
 
 # Auto-fix shell script formatting
-lint-fix-shell: _ensure-mise
+lint-fix-shell:
     @echo "→ Formatting shell scripts..."
-    find scripts/ -type f -name "*.sh" -exec shfmt -w {} +
+    @if command -v shfmt >/dev/null 2>&1; then \
+        find scripts/ -type f -name "*.sh" -print0 | xargs -0 shfmt -w; \
+    else \
+        echo "  ❌ ERROR: shfmt not found."; \
+        echo "  Install via mise: mise install shfmt"; \
+        echo "  Or system: brew install shfmt"; \
+        exit 1; \
+    fi
 
 # Lint YAML files (Kubernetes, Helm, workflows)
-lint-yaml: _ensure-mise
+lint-yaml:
     @echo "→ Linting YAML files..."
-    yamllint kubernetes/ helm/ .github/
+    @if [ -f ".venv/bin/yamllint" ]; then \
+        .venv/bin/yamllint kubernetes/ helm/ .github/; \
+    elif command -v yamllint >/dev/null 2>&1; then \
+        yamllint kubernetes/ helm/ .github/; \
+    else \
+        echo "  ❌ ERROR: yamllint not found in project venv or system."; \
+        echo "  Run: just setup"; \
+        exit 1; \
+    fi
 
 # Auto-fix YAML formatting (limited - yamllint doesn't auto-fix much)
-lint-fix-yaml: _ensure-mise
+lint-fix-yaml:
     @echo "→ Checking YAML files..."
-    yamllint kubernetes/ helm/ .github/ || true
+    @if command -v yamllint >/dev/null 2>&1; then \
+        yamllint kubernetes/ helm/ .github/ || true; \
+    else \
+        echo "  ⚠️  yamllint not installed. Skipping..."; \
+    fi
 
 # Lint Dockerfiles
-lint-docker: _ensure-mise
+lint-docker:
     @echo "→ Linting Dockerfiles..."
-    find docker/ -name "Dockerfile" -exec hadolint {} +
+    @if command -v hadolint >/dev/null 2>&1; then \
+        find docker/ -name "Dockerfile" -print0 | xargs -0 hadolint; \
+    else \
+        echo "  ❌ ERROR: hadolint not found."; \
+        echo "  Install: brew install hadolint"; \
+        echo "  Or: https://github.com/hadolint/hadolint#install"; \
+        echo "  (hadolint cannot be installed project-locally)"; \
+        exit 1; \
+    fi
 
 # Lint Helm charts
-lint-helm: _ensure-mise
+lint-helm:
     @echo "→ Linting Helm charts..."
-    helm lint helm/arc/
-    helm lint helm/arc-runners/
-    helm lint helm/arc-gpu-runners/
+    @if command -v helm >/dev/null 2>&1; then \
+        helm lint helm/arc/ || true; \
+        helm lint helm/arc-runners/ || true; \
+        helm lint helm/arc-gpu-runners/ || true; \
+    else \
+        echo "  ⚠️  helm not installed. Skipping..."; \
+    fi
 
 # Lint Python code (when python code exists)
-lint-python: _ensure-mise
+lint-python:
     @echo "→ Linting Python code..."
     @if [ -d "python/" ]; then \
-        cd python/ && ruff check .; \
-        cd python/ && ruff format --check .; \
-        cd python/ && mypy . || true; \
+        if [ -f ".venv/bin/ruff" ]; then \
+            cd python/ && ../.venv/bin/ruff check .; \
+            cd python/ && ../.venv/bin/ruff format --check .; \
+            if [ -f "../.venv/bin/mypy" ]; then \
+                cd python/ && ../.venv/bin/mypy . || true; \
+            fi; \
+        elif command -v ruff >/dev/null 2>&1; then \
+            cd python/ && ruff check .; \
+            cd python/ && ruff format --check .; \
+            if command -v mypy >/dev/null 2>&1; then \
+                cd python/ && mypy . || true; \
+            fi; \
+        else \
+            echo "  ❌ ERROR: ruff not found in project venv or system."; \
+            echo "  Run: just setup"; \
+            exit 1; \
+        fi; \
     else \
         echo "  (no Python code yet)"; \
     fi
 
 # Auto-fix Python formatting
-lint-fix-python: _ensure-mise
+lint-fix-python:
     @echo "→ Formatting Python code..."
     @if [ -d "python/" ]; then \
-        cd python/ && ruff check --fix .; \
-        cd python/ && ruff format .; \
+        if [ -f ".venv/bin/ruff" ]; then \
+            cd python/ && ../.venv/bin/ruff check --fix .; \
+            cd python/ && ../.venv/bin/ruff format .; \
+        elif command -v ruff >/dev/null 2>&1; then \
+            cd python/ && ruff check --fix .; \
+            cd python/ && ruff format .; \
+        else \
+            echo "  ❌ ERROR: ruff not found in project venv or system."; \
+            echo "  Run: just setup"; \
+            exit 1; \
+        fi; \
     else \
         echo "  (no Python code yet)"; \
     fi
 
 # Lint Packer templates
-lint-packer: _ensure-mise
+lint-packer:
     @echo "→ Validating Packer templates..."
-    find ami/ -name "*.pkr.hcl" -exec packer validate {} \; || true
+    @if command -v packer >/dev/null 2>&1; then \
+        find ami/ -name "*.pkr.hcl" -exec packer validate {} \; || true; \
+    else \
+        echo "  ⚠️  packer not installed. Skipping..."; \
+    fi
 
 # ============================================================================
 # TERRAFORM / OPENTOFU
@@ -256,16 +323,32 @@ _setup-terraform:
     @echo "⚠️  REMINDER: Use 'tofu' commands, not 'terraform'"
 
 _setup-linters:
-    @echo "→ Installing linting tools..."
-    @command -v yamllint > /dev/null || pip3 install --user yamllint
-    @command -v hadolint > /dev/null || { \
-        echo "  Installing hadolint..."; \
-        if [[ "$$OSTYPE" == "darwin"* ]]; then \
-            brew install hadolint 2>/dev/null || curl -sL https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Darwin-x86_64 -o /usr/local/bin/hadolint && chmod +x /usr/local/bin/hadolint; \
-        else \
-            curl -sL https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 -o /usr/local/bin/hadolint && chmod +x /usr/local/bin/hadolint; \
-        fi \
-    }
-    @command -v ruff > /dev/null || pip3 install --user ruff
-    @command -v mypy > /dev/null || pip3 install --user mypy
-    @echo "✓ Linting tools ready"
+    @echo "→ Setting up project-local linting environment..."
+    @echo ""
+    @echo "Installing Python linters via uv (project-local)..."
+    @command -v uv > /dev/null || { echo "❌ ERROR: 'uv' not found. Install: https://docs.astral.sh/uv/"; exit 1; }
+    uv venv .venv --python 3.12
+    uv pip install yamllint ruff mypy
+    @echo ""
+    @echo "✓ Python linters installed in .venv/"
+    @echo ""
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo "NOTE: The following tools MUST be installed by you:"
+    @echo ""
+    @echo "  • shellcheck - Shell script linter"
+    @echo "    Install: mise install shellcheck  (or: brew install shellcheck)"
+    @echo ""
+    @echo "  • shfmt - Shell script formatter"
+    @echo "    Install: mise install shfmt  (or: brew install shfmt)"
+    @echo ""
+    @echo "  • hadolint - Dockerfile linter"
+    @echo "    Install: brew install hadolint"
+    @echo "    Or: https://github.com/hadolint/hadolint#install"
+    @echo ""
+    @echo "These tools cannot be installed project-locally."
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo ""
+    @echo "Quick install (recommended):"
+    @echo "  mise install  # Installs shellcheck + shfmt project-locally via mise"
+    @echo "  brew install hadolint  # System install (no project-local option)"
+    @echo ""

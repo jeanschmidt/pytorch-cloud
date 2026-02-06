@@ -70,6 +70,7 @@ local/
 !./docs/SETUP-CHECKLIST.md
 !./docs/PROJECT-STRUCTURE.md
 !./docs/LINTING.md
+!./docs/PROJECT-LOCAL-TOOLS.md
 !./README.md
 !./CONTRIBUTING.md
 !./AGENTS.md

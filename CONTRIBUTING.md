@@ -7,18 +7,23 @@ Thank you for your interest in contributing to pytorch-cloud!
 1. **Install prerequisites:**
    - [mise](https://mise.jdx.dev/) - Tool version manager
    - [just](https://just.systems/) - Command runner
+   - [uv](https://docs.astral.sh/uv/) - Python package manager
    - Docker
    - AWS credentials configured
 
-2. **Set up the development environment:**
+2. **Set up the project-local development environment:**
    ```bash
-   just setup
+   just setup  # Installs project-local Python tools in .venv/
+   mise install  # Installs shellcheck, shfmt project-locally
+   brew install hadolint  # System install (no project-local option)
    ```
 
 3. **Verify your setup:**
    ```bash
    just ci-check
    ```
+
+**IMPORTANT**: All tools are installed **project-locally** to this repository to avoid conflicts with other projects you work on. The `.venv/` directory contains Python tools, and mise manages other tools in `.mise/`.
 
 ## Project Structure
 
