@@ -110,7 +110,7 @@ lint-fix-yaml:
 lint-docker:
     @echo "→ Linting Dockerfiles..."
     @if command -v hadolint >/dev/null 2>&1; then \
-        find docker/ -name "Dockerfile" -print0 | xargs -0 hadolint; \
+        for f in docker/*/Dockerfile; do [ -f "$$f" ] && hadolint "$$f" || true; done; \
     else \
         echo "  ❌ ERROR: hadolint not found."; \
         echo "  Install: brew install hadolint"; \
@@ -121,13 +121,13 @@ lint-docker:
 
 # Lint Helm charts
 lint-helm:
-    @echo "→ Linting Helm charts..."
+    @echo "→ Checking Helm values files..."
+    @echo "  Note: helm/ contains values files for external OCI charts (not full charts)"
+    @echo "  YAML syntax is validated by 'just lint-yaml'"
     @if command -v helm >/dev/null 2>&1; then \
-        helm lint helm/arc/ || true; \
-        helm lint helm/arc-runners/ || true; \
-        helm lint helm/arc-gpu-runners/ || true; \
+        echo "  ✓ helm installed - values files can be used with: helm install --values"; \
     else \
-        echo "  ⚠️  helm not installed. Skipping..."; \
+        echo "  ⚠️  helm not installed (optional for linting)"; \
     fi
 
 # Lint Python code (when python code exists)

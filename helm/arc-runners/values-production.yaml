@@ -10,24 +10,24 @@ maxRunners: 20
 template:
   spec:
     containers:
-    - name: runner
-      # Override with custom image once pushed to ECR
-      # image: <account>.dkr.ecr.us-west-2.amazonaws.com/pytorch-cloud/runner-base:latest
-      resources:
-        limits:
-          cpu: "8"
-          memory: "16Gi"
-        requests:
-          cpu: "4"
-          memory: "8Gi"
-    
+      - name: runner
+        # Override with custom image once pushed to ECR
+        # image: <account>.dkr.ecr.us-west-2.amazonaws.com/pytorch-cloud/runner-base:latest
+        resources:
+          limits:
+            cpu: "8"
+            memory: "16Gi"
+          requests:
+            cpu: "4"
+            memory: "8Gi"
+
     volumes:
-    - name: work
-      ephemeral:
-        volumeClaimTemplate:
-          spec:
-            accessModes: [ "ReadWriteOnce" ]
-            resources:
-              requests:
-                storage: 100Gi
-            storageClassName: gp2
+      - name: work
+        ephemeral:
+          volumeClaimTemplate:
+            spec:
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 100Gi
+              storageClassName: gp2

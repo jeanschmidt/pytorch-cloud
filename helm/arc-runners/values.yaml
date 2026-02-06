@@ -31,35 +31,35 @@ containerMode:
 template:
   spec:
     containers:
-    - name: runner
-      image: ghcr.io/actions/actions-runner:latest
-      command: ["/home/runner/run.sh"]
-      env:
-      - name: RUNNER_FEATURE_FLAG_EPHEMERAL
-        value: "true"
-      resources:
-        limits:
-          cpu: "4"
-          memory: "8Gi"
-        requests:
-          cpu: "2"
-          memory: "4Gi"
-      volumeMounts:
-      - name: work
-        mountPath: /home/runner/_work
-    
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        command: ["/home/runner/run.sh"]
+        env:
+          - name: RUNNER_FEATURE_FLAG_EPHEMERAL
+            value: "true"
+        resources:
+          limits:
+            cpu: "4"
+            memory: "8Gi"
+          requests:
+            cpu: "2"
+            memory: "4Gi"
+        volumeMounts:
+          - name: work
+            mountPath: /home/runner/_work
+
     # Volumes
     volumes:
-    - name: work
-      ephemeral:
-        volumeClaimTemplate:
-          spec:
-            accessModes: [ "ReadWriteOnce" ]
-            resources:
-              requests:
-                storage: 50Gi
-            # Use gp2 by default (gp3 requires StorageClass creation)
-            storageClassName: gp2
+      - name: work
+        ephemeral:
+          volumeClaimTemplate:
+            spec:
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 50Gi
+              # Use gp2 by default (gp3 requires StorageClass creation)
+              storageClassName: gp2
 
 # Controller service account
 controllerServiceAccount:
@@ -70,11 +70,11 @@ controllerServiceAccount:
 listenerTemplate:
   spec:
     containers:
-    - name: listener
-      resources:
-        limits:
-          cpu: "200m"
-          memory: "256Mi"
-        requests:
-          cpu: "100m"
-          memory: "128Mi"
+      - name: listener
+        resources:
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"

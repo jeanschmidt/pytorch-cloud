@@ -19,32 +19,32 @@ spec:
         name: nvidia-device-plugin-ds
     spec:
       tolerations:
-      # Tolerate base infrastructure node taints
-      - key: CriticalAddonsOnly
-        operator: Equal
-        value: "true"
-        effect: NoSchedule
-      # Tolerate GPU node taints (device plugin may run on GPU nodes)
-      - key: nvidia.com/gpu
-        operator: Exists
-        effect: NoSchedule
+        # Tolerate base infrastructure node taints
+        - key: CriticalAddonsOnly
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
+        # Tolerate GPU node taints (device plugin may run on GPU nodes)
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
       priorityClassName: system-node-critical
       containers:
-      - image: nvcr.io/nvidia/k8s-device-plugin:v0.14.5
-        name: nvidia-device-plugin-ctr
-        args:
-          - "--fail-on-init-error=false"
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop: ["ALL"]
-        volumeMounts:
-        - name: device-plugin
-          mountPath: /var/lib/kubelet/device-plugins
+        - image: nvcr.io/nvidia/k8s-device-plugin:v0.14.5
+          name: nvidia-device-plugin-ctr
+          args:
+            - "--fail-on-init-error=false"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: device-plugin
+              mountPath: /var/lib/kubelet/device-plugins
       volumes:
-      - name: device-plugin
-        hostPath:
-          path: /var/lib/kubelet/device-plugins
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
       nodeSelector:
         # Only run on GPU nodes
         nvidia.com/gpu: "true"
