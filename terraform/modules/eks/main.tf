@@ -160,7 +160,19 @@ resource "aws_eks_node_group" "base" {
   # Use launch template for bootstrap script
   launch_template {
     id      = aws_launch_template.base.id
-    version = "$Latest"
+    version = aws_launch_template.base.latest_version
+  }
+
+  lifecycle {
+    ignore_changes = [
+      scaling_config[0].desired_size, # Allow manual scaling without Terraform recreation
+    ]
+  }
+
+  timeouts {
+    create = "30m"
+    update = "30m"
+    delete = "30m"
   }
 
   tags = merge(
