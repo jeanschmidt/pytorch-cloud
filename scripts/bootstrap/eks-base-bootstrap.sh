@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# EKS Base Infrastructure Node Bootstrap Script
+# EKS Base Infrastructure Node Bootstrap Script (AL2023)
 # This script runs AFTER the EKS bootstrap process
 # It is called from the Terraform launch template
 
@@ -9,24 +9,17 @@ set -euo pipefail
 # This script contains post-bootstrap configuration only
 
 echo "Starting base infrastructure node post-bootstrap at $(date)"
+echo "Amazon Linux 2023 detected"
 
-# Configure Docker daemon
-cat >/etc/docker/daemon.json <<'EOF'
-{
-  "log-driver": "json-file",
-  "log-opts": {
-    "max-size": "10m",
-    "max-file": "3"
-  },
-  "storage-driver": "overlay2",
-  "mtu": 1500
-}
-EOF
+# AL2023 uses containerd by default (not Docker)
+# Configure containerd if needed
+if systemctl is-active --quiet containerd; then
+    echo "Containerd is running"
+    # Add any containerd-specific configuration here if needed
+fi
 
-systemctl restart docker
-
-# Install useful tools
-yum install -y \
+# Install useful tools (AL2023 uses dnf)
+dnf install -y \
 	htop \
 	iotop \
 	sysstat \

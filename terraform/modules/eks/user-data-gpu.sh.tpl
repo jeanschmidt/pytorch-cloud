@@ -1,16 +1,27 @@
-#!/bin/bash
-# EKS GPU Node User Data Template
-# This template calls the EKS bootstrap script, then runs post-bootstrap GPU configuration
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="==BOUNDARY=="
 
-# shellcheck disable=SC2154
-# Variables cluster_name and post_bootstrap_script are provided by Terraform templatefile()
+--==BOUNDARY==
+Content-Type: application/node.eks.aws
 
-set -o xtrace
+---
+apiVersion: node.eks.aws/v1alpha1
+kind: NodeConfig
+spec:
+  cluster:
+    name: ${cluster_name}
+    apiServerEndpoint: ${cluster_endpoint}
+    certificateAuthority: ${cluster_ca_data}
+    cidr: 10.100.0.0/16
+  kubelet:
+    config:
+      maxPods: 110
+    flags:
+      - --node-labels=nvidia.com/gpu=true
 
-# Call EKS bootstrap script with GPU node labels (REQUIRED)
-/etc/eks/bootstrap.sh ${cluster_name} \
-  --kubelet-extra-args '--max-pods=110 --node-labels=nvidia.com/gpu=true'
+--==BOUNDARY==
+Content-Type: text/x-shellscript; charset="us-ascii"
 
-# Run post-bootstrap GPU configuration script
-# Script is passed as a template variable from Terraform
 ${post_bootstrap_script}
+
+--==BOUNDARY==--

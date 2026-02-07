@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# EKS GPU Node Bootstrap Script
+# EKS GPU Node Bootstrap Script (AL2023)
 # This script runs AFTER the EKS bootstrap process
 # It is called from the Terraform launch template
 
@@ -8,36 +8,19 @@ set -euo pipefail
 # The EKS bootstrap script must be called FIRST by the launch template
 # This script contains post-bootstrap GPU configuration only
 
-# Configure Docker daemon with NVIDIA runtime
-cat >/etc/docker/daemon.json <<'EOF'
-{
-  "default-runtime": "nvidia",
-  "runtimes": {
-    "nvidia": {
-      "path": "nvidia-container-runtime",
-      "runtimeArgs": []
-    }
-  },
-  "log-driver": "json-file",
-  "log-opts": {
-    "max-size": "10m",
-    "max-file": "3"
-  },
-  "storage-driver": "overlay2",
-  "mtu": 1500
-}
-EOF
+echo "Starting GPU node post-bootstrap at $(date)"
+echo "Amazon Linux 2023 detected"
 
-systemctl restart docker
-
-# Install nvidia-docker2 if not present
-if ! command -v nvidia-container-runtime &>/dev/null; then
-	yum install -y nvidia-docker2
-	systemctl restart docker
+# AL2023 uses containerd with nvidia-container-runtime
+# Configure containerd for NVIDIA runtime
+if systemctl is-active --quiet containerd; then
+    echo "Configuring containerd for NVIDIA runtime..."
+    # The nvidia-container-runtime is pre-installed in AL2023 EKS GPU AMIs
+    # Containerd is already configured to use it via /etc/containerd/config.toml
 fi
 
-# Install useful tools
-yum install -y \
+# Install useful tools (AL2023 uses dnf)
+dnf install -y \
 	htop \
 	iotop \
 	sysstat \
@@ -45,8 +28,10 @@ yum install -y \
 	wget \
 	curl \
 	git \
-	ccache \
-	nvtop || true
+	ccache
+
+# Try to install nvtop if available (may not be in default repos)
+dnf install -y nvtop || echo "nvtop not available, skipping..."
 
 # Configure node for CI workloads
 sysctl -w vm.max_map_count=262144

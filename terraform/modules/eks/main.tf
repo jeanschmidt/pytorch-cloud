@@ -9,6 +9,27 @@ terraform {
   }
 }
 
+# Get latest EKS-optimized AMI for Amazon Linux 2023
+data "aws_ami" "eks_optimized_al2023" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["amazon-eks-node-al2023-x86_64-standard-${var.cluster_version}-v*"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
 # EKS Cluster
 resource "aws_eks_cluster" "this" {
   name     = var.cluster_name
@@ -87,7 +108,7 @@ resource "aws_iam_openid_connect_provider" "cluster" {
 resource "aws_eks_addon" "vpc_cni" {
   cluster_name                = aws_eks_cluster.this.name
   addon_name                  = "vpc-cni"
-  addon_version               = "v1.16.0-eksbuild.1"
+  addon_version               = "v1.21.1-eksbuild.3"
   resolve_conflicts_on_update = "PRESERVE"
 
   tags = var.tags
@@ -96,7 +117,7 @@ resource "aws_eks_addon" "vpc_cni" {
 resource "aws_eks_addon" "coredns" {
   cluster_name                = aws_eks_cluster.this.name
   addon_name                  = "coredns"
-  addon_version               = "v1.11.1-eksbuild.4"
+  addon_version               = "v1.13.2-eksbuild.1"
   resolve_conflicts_on_update = "PRESERVE"
 
   # CoreDNS must tolerate base node taints to run on infrastructure nodes
@@ -119,7 +140,7 @@ resource "aws_eks_addon" "coredns" {
 resource "aws_eks_addon" "kube_proxy" {
   cluster_name                = aws_eks_cluster.this.name
   addon_name                  = "kube-proxy"
-  addon_version               = "v1.29.0-eksbuild.1"
+  addon_version               = "v1.35.0-eksbuild.2"
   resolve_conflicts_on_update = "PRESERVE"
 
   tags = var.tags
@@ -193,12 +214,14 @@ resource "aws_eks_node_group" "base" {
 # Launch template for base infrastructure nodes
 resource "aws_launch_template" "base" {
   name_prefix = "${var.cluster_name}-base-"
-  image_id    = "" # Empty = use EKS-optimized AMI
+  image_id    = data.aws_ami.eks_optimized_al2023.id
   # instance_type removed - specified in node group instead
 
-  # User data calls EKS bootstrap, then runs our post-bootstrap script
+  # User data for AL2023 with nodeadm configuration
   user_data = base64encode(templatefile("${path.module}/user-data-base.sh.tpl", {
     cluster_name          = aws_eks_cluster.this.name
+    cluster_endpoint      = aws_eks_cluster.this.endpoint
+    cluster_ca_data       = aws_eks_cluster.this.certificate_authority[0].data
     post_bootstrap_script = file("${path.root}/../../../scripts/bootstrap/eks-base-bootstrap.sh")
   }))
 

@@ -444,68 +444,98 @@ _setup-linters:
 
 # Deploy infrastructure (Terraform)
 _deploy-infrastructure env:
-    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo "📦 STEP 1: Infrastructure (Terraform/OpenTofu)"
-    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo "Initializing Terraform..."
-    @cd terraform/environments/{{env}} && tofu init
-    @echo ""
-    @echo "Planning infrastructure changes..."
-    @cd terraform/environments/{{env}} && tofu plan -out=tfplan
-    @echo ""
-    @echo "Applying infrastructure..."
-    @cd terraform/environments/{{env}} && tofu apply tfplan
-    @echo ""
-    @echo "Updating kubeconfig..."
-    @aws eks update-kubeconfig --name pytorch-arc-{{env}} --region $$(cd terraform/environments/{{env}} && tofu output -raw aws_region 2>/dev/null || echo "us-west-2")
-    @echo "✅ Infrastructure deployed"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📦 STEP 1: Infrastructure (Terraform/OpenTofu)"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    # Change to terraform environment directory
+    cd terraform/environments/{{env}}
+    
+    echo "Initializing Terraform..."
+    tofu init
+    echo ""
+    echo "Planning infrastructure changes..."
+    tofu plan -out=tfplan
+    echo ""
+    echo "Applying infrastructure..."
+    tofu apply tfplan
+    echo ""
+    echo "Updating kubeconfig..."
+    AWS_REGION=$(tofu output -raw aws_region 2>/dev/null || echo "us-west-1")
+    aws eks update-kubeconfig --name pytorch-arc-{{env}} --region "${AWS_REGION}"
+    echo "✅ Infrastructure deployed"
 
 # Deploy Kubernetes resources
 _deploy-kubernetes env:
-    @echo ""
-    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo "☸️  STEP 2: Kubernetes Resources"
-    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo "Applying Kubernetes manifests for {{env}}..."
-    @kubectl apply -k kubernetes/overlays/{{env}}/
-    @echo ""
-    @echo "Waiting for NVIDIA device plugin to be ready..."
-    @kubectl rollout status daemonset/nvidia-device-plugin-daemonset -n kube-system --timeout=5m || true
-    @echo "✅ Kubernetes resources deployed"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "☸️  STEP 2: Kubernetes Resources"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "Applying Kubernetes manifests for {{env}}..."
+    kubectl apply -k kubernetes/overlays/{{env}}/
+    echo ""
+    echo "Waiting for NVIDIA device plugin to be ready..."
+    kubectl rollout status daemonset/nvidia-device-plugin-daemonset -n kube-system --timeout=5m || true
+    echo "✅ Kubernetes resources deployed"
 
 # Deploy Helm charts
 _deploy-helm env:
-    @echo ""
-    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo "⎈  STEP 3: Helm Charts"
-    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo "Installing ARC controller..."
-    @helm upgrade --install arc \
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "⎈  STEP 3: Helm Charts"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "Waiting for nodes to register with cluster..."
+    for i in {1..60}; do
+        NODE_COUNT=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')
+        if [ "$NODE_COUNT" -gt 0 ]; then
+            echo "Found $NODE_COUNT node(s), waiting for them to be ready..."
+            kubectl wait --for=condition=Ready nodes --all --timeout=10m
+            break
+        fi
+        if [ $i -eq 60 ]; then
+            echo "⚠️  Warning: No nodes found after 5 minutes, continuing anyway..."
+            break
+        fi
+        echo "  No nodes yet, waiting... ($i/60)"
+        sleep 5
+    done
+    echo ""
+    echo "Installing ARC controller..."
+    helm upgrade --install arc \
         --namespace arc-systems \
         --create-namespace \
         -f helm/arc/values.yaml \
         -f helm/arc/values-{{env}}.yaml \
         oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller \
+        --timeout 10m \
         --wait
-    @echo ""
-    @echo "Installing CPU runner scale set..."
-    @helm upgrade --install arc-runner-set \
+    echo ""
+    echo "Installing CPU runner scale set..."
+    helm upgrade --install arc-runner-set \
         --namespace arc-runners \
         --create-namespace \
         -f helm/arc-runners/values.yaml \
         -f helm/arc-runners/values-{{env}}.yaml \
         oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+        --timeout 10m \
         --wait
-    @echo ""
-    @echo "Installing GPU runner scale set..."
-    @helm upgrade --install arc-gpu-runner-set \
+    echo ""
+    echo "Installing GPU runner scale set..."
+    helm upgrade --install arc-gpu-runner-set \
         --namespace arc-runners \
         --create-namespace \
         -f helm/arc-gpu-runners/values.yaml \
         -f helm/arc-gpu-runners/values-{{env}}.yaml \
         oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+        --timeout 10m \
         --wait
-    @echo "✅ Helm charts deployed"
+    echo "✅ Helm charts deployed"
 
 # Build and push Docker images
 _deploy-docker registry:

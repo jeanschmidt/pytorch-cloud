@@ -1,20 +1,27 @@
 MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="==MYBOUNDARY=="
+Content-Type: multipart/mixed; boundary="==BOUNDARY=="
 
---==MYBOUNDARY==
+--==BOUNDARY==
+Content-Type: application/node.eks.aws
+
+---
+apiVersion: node.eks.aws/v1alpha1
+kind: NodeConfig
+spec:
+  cluster:
+    name: ${cluster_name}
+    apiServerEndpoint: ${cluster_endpoint}
+    certificateAuthority: ${cluster_ca_data}
+    cidr: 10.100.0.0/16
+  kubelet:
+    config:
+      maxPods: 110
+    flags:
+      - --register-with-taints=CriticalAddonsOnly=true:NoSchedule
+
+--==BOUNDARY==
 Content-Type: text/x-shellscript; charset="us-ascii"
 
-#!/bin/bash
-# EKS Base Infrastructure Node User Data Template
-# This template calls the EKS bootstrap script, then runs post-bootstrap configuration
-
-set -o xtrace
-
-# Call EKS bootstrap script with base node configuration (REQUIRED)
-/etc/eks/bootstrap.sh ${cluster_name} \
-  --kubelet-extra-args '--max-pods=110 --register-with-taints=CriticalAddonsOnly=true:NoSchedule'
-
-# Run post-bootstrap configuration script
 ${post_bootstrap_script}
 
---==MYBOUNDARY==--
+--==BOUNDARY==--
