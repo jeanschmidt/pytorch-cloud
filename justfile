@@ -326,35 +326,33 @@ deploy-control-plane env: _auto-setup
     
     echo "✅ Control plane deployed"
 
-# Deploy runners (all YAML files in runners/)
+# Deploy runners via Helm (ARC requires Helm, not kubectl apply)
 deploy-runners env: _auto-setup
+    @echo ""
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo "🏃 STEP 3: Runners & NodePools"
+    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo ""
+    @echo "Deploying Karpenter NodePools and ARC runner scale sets..."
+    @echo ""
+    just _deploy-nodepools {{env}}
+    just _deploy-runner-cpu-small {{env}}
+    just _deploy-runner-cpu-medium {{env}}
+    just _deploy-runner-cpu-large {{env}}
+    just _deploy-runner-gpu-t4 {{env}}
+    @echo ""
+    @echo "✅ Runners deployed"
+    @echo ""
+    @echo "Available runner types:"
+    @kubectl get autoscalingrunnersets -n arc-runners -o custom-columns=NAME:.spec.runnerScaleSetName,MIN:.spec.minRunners,MAX:.spec.maxRunners
+
+# Deploy Karpenter NodePools
+_deploy-nodepools env:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo ""
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "🏃 STEP 3: Runners & NodePools"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    
-    # Get cluster name from terraform
     cd terraform/environments/{{env}}
     CLUSTER_NAME=$(tofu output -raw cluster_name)
     cd -
-    
-    # Set environment-specific runner prefix
-    if [ "{{env}}" = "staging" ]; then
-        RUNNER_PREFIX="c."
-        echo "Environment: staging (canary)"
-        echo "GitHub Org: pytorch/pytorch-canary"
-        echo "Runner prefix: c."
-    else
-        RUNNER_PREFIX=""
-        echo "Environment: production"
-        echo "GitHub Org: pytorch"
-        echo "Runner prefix: (none)"
-    fi
-    echo ""
-    
-    # Apply NodePools (substitute CLUSTER_NAME)
     echo "Applying Karpenter NodePools..."
     for nodepool in runners/nodepools/*.yaml; do
         if [ -f "$nodepool" ]; then
@@ -363,18 +361,50 @@ deploy-runners env: _auto-setup
         fi
     done
     echo ""
-    
-    # Apply Runner definitions using kustomize + sed for prefix
-    echo "Applying runner definitions from runners/overlays/{{env}}/..."
-    kubectl kustomize runners/overlays/{{env}}/ | \
-      sed "s|runnerScaleSetName: \(.*\)|runnerScaleSetName: ${RUNNER_PREFIX}\1|g" | \
-      kubectl apply -f -
-    echo ""
-    
-    echo "✅ Runners deployed"
-    echo ""
-    echo "Available runner types:"
-    kubectl get autoscalingrunnersets -n arc-runners -o custom-columns=NAME:.spec.runnerScaleSetName,MIN:.spec.minRunners,MAX:.spec.maxRunners
+
+# Deploy CPU Small runner
+_deploy-runner-cpu-small env:
+    @echo "  → cpu-small"
+    helm upgrade --install arc-cpu-small \
+        --namespace arc-runners \
+        --create-namespace \
+        -f helm/runners/cpu-small-{{env}}.yaml \
+        oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+        --version 0.13.1 \
+        --wait
+
+# Deploy CPU Medium runner
+_deploy-runner-cpu-medium env:
+    @echo "  → cpu-medium"
+    helm upgrade --install arc-cpu-medium \
+        --namespace arc-runners \
+        --create-namespace \
+        -f helm/runners/cpu-medium-{{env}}.yaml \
+        oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+        --version 0.13.1 \
+        --wait
+
+# Deploy CPU Large runner
+_deploy-runner-cpu-large env:
+    @echo "  → cpu-large"
+    helm upgrade --install arc-cpu-large \
+        --namespace arc-runners \
+        --create-namespace \
+        -f helm/runners/cpu-large-{{env}}.yaml \
+        oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+        --version 0.13.1 \
+        --wait
+
+# Deploy GPU T4 runner
+_deploy-runner-gpu-t4 env:
+    @echo "  → gpu-t4"
+    helm upgrade --install arc-gpu-t4 \
+        --namespace arc-runners \
+        --create-namespace \
+        -f helm/runners/gpu-t4-{{env}}.yaml \
+        oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+        --version 0.13.1 \
+        --wait
 
 # Destroy entire environment (with confirmation)
 destroy env: _auto-setup
