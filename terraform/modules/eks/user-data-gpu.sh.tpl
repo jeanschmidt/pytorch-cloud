@@ -12,7 +12,7 @@ spec:
     name: ${cluster_name}
     apiServerEndpoint: ${cluster_endpoint}
     certificateAuthority: ${cluster_ca_data}
-    cidr: 10.100.0.0/16
+    cidr: ${service_cidr}
   kubelet:
     config:
       maxPods: 110

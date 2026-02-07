@@ -30,6 +30,13 @@ settings:
   featureGates:
     spotToSpotConsolidation: true
 
+# Environment variables
+controller:
+  env:
+    # Use global STS endpoint instead of regional (more reliable)
+    - name: AWS_STS_REGIONAL_ENDPOINTS
+      value: "legacy"
+
 # CRITICAL: Tolerations to run on base infrastructure nodes
 # The base nodes are tainted with CriticalAddonsOnly=true:NoSchedule
 tolerations:
@@ -68,3 +75,14 @@ controller:
 controller:
   healthProbe:
     port: 8081
+  # Increase timeouts for slow AWS API responses
+  livenessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 30
+    failureThreshold: 3
+  readinessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 30
+    failureThreshold: 3

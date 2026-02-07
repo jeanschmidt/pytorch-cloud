@@ -309,7 +309,7 @@ deploy-control-plane env: _auto-setup
         --timeout 10m \
         --wait \
         oci://public.ecr.aws/karpenter/karpenter \
-        --version 1.1.1
+        --version 1.9.0
     echo ""
     
     # Install ARC Controller
