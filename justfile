@@ -207,8 +207,8 @@ lint-packer:
 # DEPLOYMENT
 # ============================================================================
 
-# Full deployment: infrastructure + kubernetes + helm + docker images
-deploy env registry="": _auto-setup
+# Full deployment: infrastructure + control plane + runners
+deploy env: _auto-setup
     #!/usr/bin/env bash
     set -euo pipefail
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -216,11 +216,9 @@ deploy env registry="": _auto-setup
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
     echo "This will:"
-    echo "  1. Initialize and deploy Terraform infrastructure"
-    echo "  2. Configure kubectl access to the cluster"
-    echo "  3. Deploy Kubernetes base resources (namespaces, NVIDIA plugin)"
-    echo "  4. Install Helm charts (ARC controller and runner sets)"
-    if [ -n "{{registry}}" ]; then echo "  5. Build and push Docker images to {{registry}}"; fi
+    echo "  1. Deploy infrastructure (VPC, EKS, base nodes)"
+    echo "  2. Deploy control plane (Karpenter, ARC controller)"
+    echo "  3. Deploy runners (all YAML files in runners/)"
     echo ""
     read -p "Continue? [y/N] " -n 1 -r
     echo
@@ -229,29 +227,143 @@ deploy env registry="": _auto-setup
         exit 1
     fi
     echo ""
-    just _deploy-infrastructure {{env}}
-    just _deploy-kubernetes {{env}}
-    just _deploy-helm {{env}}
-    if [ -n "{{registry}}" ]; then just _deploy-docker {{registry}}; fi
+    just deploy-infra {{env}}
+    just deploy-control-plane {{env}}
+    just deploy-runners {{env}}
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "✅ DEPLOYMENT COMPLETE - {{env}}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-    echo "Cluster info:"
-    kubectl cluster-info
+    kubectl get nodes
     echo ""
-    echo "Runner pods:"
+    kubectl get pods -n karpenter
+    kubectl get pods -n arc-systems
     kubectl get pods -n arc-runners
+    echo ""
+    kubectl get nodepools
+    kubectl get autoscalingrunnersets -n arc-runners
 
-# Deploy without confirmation prompt (for CI/CD)
-deploy-noninteractive env registry="": _auto-setup
-    @echo "🚀 Starting deployment to {{env}}..."
-    @just _deploy-infrastructure {{env}}
-    @just _deploy-kubernetes {{env}}
-    @just _deploy-helm {{env}}
-    @if [ -n "{{registry}}" ]; then just _deploy-docker {{registry}}; fi
-    @echo "✅ Deployment complete"
+# Deploy infrastructure only (Terraform)
+deploy-infra env: _auto-setup
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📦 STEP 1: Infrastructure (OpenTofu)"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    cd terraform/environments/{{env}}
+    echo "Initializing..."
+    tofu init
+    echo ""
+    echo "Planning..."
+    tofu plan -out=tfplan
+    echo ""
+    echo "Applying..."
+    tofu apply tfplan
+    echo ""
+    echo "Updating kubeconfig..."
+    AWS_REGION=$(tofu output -raw aws_region 2>/dev/null || echo "us-west-2")
+    CLUSTER_NAME=$(tofu output -raw cluster_name)
+    aws eks update-kubeconfig --name "${CLUSTER_NAME}" --region "${AWS_REGION}"
+    echo "✅ Infrastructure deployed"
+
+# Deploy control plane (Karpenter + ARC controller + base k8s resources)
+deploy-control-plane env: _auto-setup
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "⎈  STEP 2: Control Plane (Karpenter + ARC)"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    # Wait for nodes
+    echo "Waiting for base nodes to be ready..."
+    kubectl wait --for=condition=Ready nodes --all --timeout=10m
+    echo ""
+    
+    # Deploy base Kubernetes resources (namespaces, NVIDIA plugin)
+    echo "Deploying base Kubernetes resources..."
+    kubectl apply -k kubernetes/overlays/{{env}}/
+    echo ""
+    
+    # Get Terraform outputs
+    cd terraform/environments/{{env}}
+    KARPENTER_ROLE=$(tofu output -raw karpenter_role_arn)
+    CLUSTER_ENDPOINT=$(tofu output -raw cluster_endpoint)
+    CLUSTER_NAME=$(tofu output -raw cluster_name)
+    QUEUE_NAME=$(tofu output -raw karpenter_queue_name)
+    cd -
+    echo ""
+    
+    # Install Karpenter
+    echo "Installing Karpenter..."
+    helm upgrade --install karpenter \
+        --namespace karpenter \
+        --create-namespace \
+        -f helm/karpenter/values.yaml \
+        -f helm/karpenter/values-{{env}}.yaml \
+        --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="${KARPENTER_ROLE}" \
+        --set settings.clusterName="${CLUSTER_NAME}" \
+        --set settings.clusterEndpoint="${CLUSTER_ENDPOINT}" \
+        --set settings.interruptionQueue="${QUEUE_NAME}" \
+        --timeout 10m \
+        --wait \
+        oci://public.ecr.aws/karpenter/karpenter \
+        --version 1.1.1
+    echo ""
+    
+    # Install ARC Controller
+    echo "Installing ARC controller..."
+    helm upgrade --install arc \
+        --namespace arc-systems \
+        --create-namespace \
+        -f helm/arc/values.yaml \
+        -f helm/arc/values-{{env}}.yaml \
+        oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller \
+        --timeout 10m \
+        --wait
+    echo ""
+    
+    echo "✅ Control plane deployed"
+
+# Deploy runners (all YAML files in runners/)
+deploy-runners env: _auto-setup
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🏃 STEP 3: Runners & NodePools"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    # Get cluster name from terraform
+    cd terraform/environments/{{env}}
+    CLUSTER_NAME=$(tofu output -raw cluster_name)
+    cd -
+    
+    # Apply NodePools (substitute CLUSTER_NAME)
+    echo "Applying Karpenter NodePools..."
+    for nodepool in runners/nodepools/*.yaml; do
+        if [ -f "$nodepool" ]; then
+            echo "  → $(basename $nodepool)"
+            sed "s/\${CLUSTER_NAME}/${CLUSTER_NAME}/g" "$nodepool" | kubectl apply -f -
+        fi
+    done
+    echo ""
+    
+    # Apply Runner definitions
+    echo "Applying runner definitions..."
+    for runner in runners/*.yaml; do
+        if [ -f "$runner" ] && [ "$runner" != "runners/README.md" ]; then
+            echo "  → $(basename $runner)"
+            kubectl apply -f "$runner"
+        fi
+    done
+    echo ""
+    
+    echo "✅ Runners deployed"
+    echo ""
+    echo "Available runner types:"
+    kubectl get autoscalingrunnersets -n arc-runners -o custom-columns=NAME:.spec.runnerScaleSetName,MIN:.spec.minRunners,MAX:.spec.maxRunners
 
 # Destroy entire environment (with confirmation)
 destroy env: _auto-setup
@@ -264,9 +376,9 @@ destroy env: _auto-setup
     echo "This will PERMANENTLY DELETE:"
     echo "  - EKS Cluster: pytorch-arc-{{env}}"
     echo "  - VPC and all networking"
-    echo "  - All node groups"
+    echo "  - All node groups (including Karpenter-managed)"
     echo "  - All Kubernetes resources"
-    echo "  - All Helm releases"
+    echo "  - All Helm releases (Karpenter, ARC, runners)"
     echo ""
     echo "Type the environment name to confirm: {{env}}"
     read -p "> " confirm
@@ -275,13 +387,18 @@ destroy env: _auto-setup
         exit 1
     fi
     echo ""
+    echo "Deleting runners..."
+    kubectl delete autoscalingrunnersets --all -n arc-runners 2>/dev/null || true
+    echo ""
+    echo "Deleting NodePools..."
+    kubectl delete nodepools --all 2>/dev/null || true
+    echo ""
     echo "Uninstalling Helm releases..."
-    helm uninstall arc-gpu-runner-set -n arc-runners 2>/dev/null || true
-    helm uninstall arc-runner-set -n arc-runners 2>/dev/null || true
     helm uninstall arc -n arc-systems 2>/dev/null || true
+    helm uninstall karpenter -n karpenter 2>/dev/null || true
     echo ""
     echo "Deleting Kubernetes resources..."
-    kubectl delete -k kubernetes/overlays/{{env}}/ || true
+    kubectl delete -k kubernetes/overlays/{{env}}/ 2>/dev/null || true
     echo ""
     echo "Destroying Terraform infrastructure..."
     cd terraform/environments/{{env}} && tofu destroy -auto-approve
