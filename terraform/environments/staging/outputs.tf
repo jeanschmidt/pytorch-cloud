@@ -32,3 +32,14 @@ output "aws_region" {
   description = "AWS region"
   value       = var.aws_region
 }
+
+# Karpenter outputs (needed by justfile)
+output "karpenter_role_arn" {
+  description = "ARN of the Karpenter controller IAM role"
+  value       = module.karpenter.role_arn
+}
+
+output "karpenter_queue_name" {
+  description = "Name of the SQS queue for Karpenter interruption handling"
+  value       = module.karpenter.queue_name
+}

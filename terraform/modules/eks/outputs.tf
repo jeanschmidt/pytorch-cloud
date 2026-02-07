@@ -23,6 +23,26 @@ output "cluster_security_group_id" {
   value       = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
 }
 
+output "oidc_provider_arn" {
+  description = "ARN of the OIDC provider for IRSA"
+  value       = var.enable_irsa ? aws_iam_openid_connect_provider.cluster[0].arn : null
+}
+
+output "oidc_provider" {
+  description = "OIDC provider URL without https://"
+  value       = var.enable_irsa ? replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "") : null
+}
+
+output "node_instance_role_arn" {
+  description = "IAM role ARN for worker nodes"
+  value       = aws_iam_role.node.arn
+}
+
+output "node_instance_role_name" {
+  description = "IAM role name for worker nodes"
+  value       = aws_iam_role.node.name
+}
+
 output "cluster_certificate_authority_data" {
   description = "Base64 encoded certificate data required to communicate with the cluster"
   value       = aws_eks_cluster.this.certificate_authority[0].data
@@ -32,9 +52,4 @@ output "cluster_certificate_authority_data" {
 output "cluster_version" {
   description = "The Kubernetes version for the cluster"
   value       = aws_eks_cluster.this.version
-}
-
-output "oidc_provider_arn" {
-  description = "ARN of the OIDC Provider for EKS"
-  value       = try(aws_iam_openid_connect_provider.cluster[0].arn, null)
 }

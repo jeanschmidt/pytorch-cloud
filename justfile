@@ -102,13 +102,13 @@ lint-fix-shell: _auto-setup
         exit 1; \
     fi
 
-# Lint YAML files (Kubernetes, Helm, workflows)
+# Lint YAML files (Kubernetes, Helm, runners, workflows)
 lint-yaml: _auto-setup
     @echo "→ Linting YAML files..."
     @if [ -f ".venv/bin/yamllint" ]; then \
-        .venv/bin/yamllint kubernetes/ helm/ .github/; \
+        .venv/bin/yamllint kubernetes/ helm/ runners/ .github/; \
     elif command -v yamllint >/dev/null 2>&1; then \
-        yamllint kubernetes/ helm/ .github/; \
+        yamllint kubernetes/ helm/ runners/ .github/; \
     else \
         echo "  ❌ ERROR: yamllint not found in project venv or system."; \
         echo "  Run: just setup"; \
@@ -119,9 +119,9 @@ lint-yaml: _auto-setup
 lint-fix-yaml: _auto-setup
     @echo "→ Checking YAML files..."
     @if [ -f ".venv/bin/yamllint" ]; then \
-        .venv/bin/yamllint kubernetes/ helm/ .github/ || true; \
+        .venv/bin/yamllint kubernetes/ helm/ runners/ .github/ || true; \
     elif command -v yamllint >/dev/null 2>&1; then \
-        yamllint kubernetes/ helm/ .github/ || true; \
+        yamllint kubernetes/ helm/ runners/ .github/ || true; \
     else \
         echo "  (yamllint not installed, skipping)"; \
     fi
@@ -340,6 +340,20 @@ deploy-runners env: _auto-setup
     CLUSTER_NAME=$(tofu output -raw cluster_name)
     cd -
     
+    # Set environment-specific runner prefix
+    if [ "{{env}}" = "staging" ]; then
+        RUNNER_PREFIX="c."
+        echo "Environment: staging (canary)"
+        echo "GitHub Org: pytorch/pytorch-canary"
+        echo "Runner prefix: c."
+    else
+        RUNNER_PREFIX=""
+        echo "Environment: production"
+        echo "GitHub Org: pytorch"
+        echo "Runner prefix: (none)"
+    fi
+    echo ""
+    
     # Apply NodePools (substitute CLUSTER_NAME)
     echo "Applying Karpenter NodePools..."
     for nodepool in runners/nodepools/*.yaml; do
@@ -350,14 +364,11 @@ deploy-runners env: _auto-setup
     done
     echo ""
     
-    # Apply Runner definitions
-    echo "Applying runner definitions..."
-    for runner in runners/*.yaml; do
-        if [ -f "$runner" ] && [ "$runner" != "runners/README.md" ]; then
-            echo "  → $(basename $runner)"
-            kubectl apply -f "$runner"
-        fi
-    done
+    # Apply Runner definitions using kustomize + sed for prefix
+    echo "Applying runner definitions from runners/overlays/{{env}}/..."
+    kubectl kustomize runners/overlays/{{env}}/ | \
+      sed "s|runnerScaleSetName: \(.*\)|runnerScaleSetName: ${RUNNER_PREFIX}\1|g" | \
+      kubectl apply -f -
     echo ""
     
     echo "✅ Runners deployed"
@@ -475,37 +486,6 @@ k8s-validate:
     done
 
 # ============================================================================
-# HELM
-# ============================================================================
-
-# Install/upgrade ARC controller
-helm-install-arc env namespace="arc-systems":
-    helm upgrade --install arc \
-        --namespace {{namespace}} \
-        --create-namespace \
-        -f helm/arc/values.yaml \
-        -f helm/arc/values-{{env}}.yaml \
-        oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller
-
-# Install/upgrade CPU runner scale set
-helm-install-runners env namespace="arc-runners":
-    helm upgrade --install arc-runner-set \
-        --namespace {{namespace}} \
-        --create-namespace \
-        -f helm/arc-runners/values.yaml \
-        -f helm/arc-runners/values-{{env}}.yaml \
-        oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
-
-# Install/upgrade GPU runner scale set
-helm-install-gpu-runners env namespace="arc-runners":
-    helm upgrade --install arc-gpu-runner-set \
-        --namespace {{namespace}} \
-        --create-namespace \
-        -f helm/arc-gpu-runners/values.yaml \
-        -f helm/arc-gpu-runners/values-{{env}}.yaml \
-        oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
-
-# ============================================================================
 # AMI
 # ============================================================================
 
@@ -558,115 +538,3 @@ _setup-linters:
         uv pip install --quiet yamllint ruff mypy; \
         echo "✓ Python linters installed in .venv/"; \
     fi
-
-# Deploy infrastructure (Terraform)
-_deploy-infrastructure env:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "📦 STEP 1: Infrastructure (Terraform/OpenTofu)"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    
-    # Change to terraform environment directory
-    cd terraform/environments/{{env}}
-    
-    echo "Initializing Terraform..."
-    tofu init
-    echo ""
-    echo "Planning infrastructure changes..."
-    tofu plan -out=tfplan
-    echo ""
-    echo "Applying infrastructure..."
-    tofu apply tfplan
-    echo ""
-    echo "Updating kubeconfig..."
-    AWS_REGION=$(tofu output -raw aws_region 2>/dev/null || echo "us-west-1")
-    aws eks update-kubeconfig --name pytorch-arc-{{env}} --region "${AWS_REGION}"
-    echo "✅ Infrastructure deployed"
-
-# Deploy Kubernetes resources
-_deploy-kubernetes env:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    echo ""
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "☸️  STEP 2: Kubernetes Resources"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "Applying Kubernetes manifests for {{env}}..."
-    kubectl apply -k kubernetes/overlays/{{env}}/
-    echo ""
-    echo "Waiting for NVIDIA device plugin to be ready..."
-    kubectl rollout status daemonset/nvidia-device-plugin-daemonset -n kube-system --timeout=5m || true
-    echo "✅ Kubernetes resources deployed"
-
-# Deploy Helm charts
-_deploy-helm env:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    echo ""
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "⎈  STEP 3: Helm Charts"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "Waiting for nodes to register with cluster..."
-    for i in {1..60}; do
-        NODE_COUNT=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')
-        if [ "$NODE_COUNT" -gt 0 ]; then
-            echo "Found $NODE_COUNT node(s), waiting for them to be ready..."
-            kubectl wait --for=condition=Ready nodes --all --timeout=10m
-            break
-        fi
-        if [ $i -eq 60 ]; then
-            echo "⚠️  Warning: No nodes found after 5 minutes, continuing anyway..."
-            break
-        fi
-        echo "  No nodes yet, waiting... ($i/60)"
-        sleep 5
-    done
-    echo ""
-    echo "Installing ARC controller..."
-    helm upgrade --install arc \
-        --namespace arc-systems \
-        --create-namespace \
-        -f helm/arc/values.yaml \
-        -f helm/arc/values-{{env}}.yaml \
-        oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller \
-        --timeout 10m \
-        --wait
-    echo ""
-    echo "Installing CPU runner scale set..."
-    helm upgrade --install arc-runner-set \
-        --namespace arc-runners \
-        --create-namespace \
-        -f helm/arc-runners/values.yaml \
-        -f helm/arc-runners/values-{{env}}.yaml \
-        oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
-        --timeout 10m \
-        --wait
-    echo ""
-    echo "Installing GPU runner scale set..."
-    helm upgrade --install arc-gpu-runner-set \
-        --namespace arc-runners \
-        --create-namespace \
-        -f helm/arc-gpu-runners/values.yaml \
-        -f helm/arc-gpu-runners/values-{{env}}.yaml \
-        oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
-        --timeout 10m \
-        --wait
-    echo "✅ Helm charts deployed"
-
-# Build and push Docker images
-_deploy-docker registry:
-    @echo ""
-    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo "🐳 STEP 4: Docker Images"
-    @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo "Building and pushing Docker images to {{registry}}..."
-    @for dir in docker/*/; do \
-        name=$$(basename "$dir"); \
-        echo ""; \
-        echo "Building $name..."; \
-        docker build -t {{registry}}/$name:latest -f "$dir/Dockerfile" "$dir"; \
-        echo "Pushing $name..."; \
-        docker push {{registry}}/$name:latest; \
-    done
-    @echo "✅ Docker images built and pushed"

@@ -84,3 +84,32 @@ module "eks" {
 
   tags = local.tags
 }
+
+# Karpenter Module
+module "karpenter" {
+  source = "../../modules/karpenter"
+
+  cluster_name            = local.cluster_name
+  aws_region              = var.aws_region
+  oidc_provider_arn       = module.eks.oidc_provider_arn
+  oidc_provider           = module.eks.oidc_provider
+  node_instance_role_arn  = module.eks.node_instance_role_arn
+
+  tags = local.tags
+}
+
+# Tag subnets for Karpenter discovery
+resource "aws_ec2_tag" "private_subnets_karpenter" {
+  count = length(module.vpc.private_subnet_ids)
+
+  resource_id = module.vpc.private_subnet_ids[count.index]
+  key         = "karpenter.sh/discovery"
+  value       = local.cluster_name
+}
+
+# Tag cluster security group for Karpenter
+resource "aws_ec2_tag" "cluster_sg_karpenter" {
+  resource_id = module.eks.cluster_security_group_id
+  key         = "karpenter.sh/discovery"
+  value       = local.cluster_name
+}

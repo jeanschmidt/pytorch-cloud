@@ -1,17 +1,17 @@
 variable "aws_region" {
-  description = "AWS region"
+  description = "AWS region for production environment"
   type        = string
-  default     = "us-west-1"
+  default     = "us-west-2"
 }
 
 variable "base_node_count" {
-  description = "Number of base infrastructure nodes (fixed size)"
+  description = "Number of base infrastructure nodes"
   type        = number
-  default     = 10
+  default     = 3 # HA for production
 }
 
 variable "base_node_instance_type" {
   description = "Instance type for base infrastructure nodes"
   type        = string
-  default     = "m5.xlarge"
+  default     = "t3.large"
 }
