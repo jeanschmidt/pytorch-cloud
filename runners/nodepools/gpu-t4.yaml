@@ -1,0 +1,120 @@
+# Karpenter NodePool: T4 GPU Runners
+# Provisions g4dn instances with NVIDIA T4 GPUs
+
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: gpu-t4-runners
+spec:
+  # Limits
+  limits:
+    nvidia.com/gpu: "40"  # Max 40 T4 GPUs
+  
+  # Disruption settings (conservative for GPU nodes)
+  disruption:
+    consolidationPolicy: WhenEmpty  # Only consolidate when fully empty
+    consolidateAfter: 5m  # Wait 5 minutes before terminating
+    budgets:
+      - nodes: "0"  # Never voluntarily disrupt nodes with running workloads
+  
+  template:
+    metadata:
+      labels:
+        workload-type: github-runner
+        nvidia.com/gpu: "true"
+        nvidia.com/gpu.product: "T4"
+    
+    spec:
+      requirements:
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot", "on-demand"]
+        - key: node.kubernetes.io/instance-type
+          operator: In
+          values:
+            - g4dn.xlarge    # 1x T4, 4 vCPU, 16GB
+            - g4dn.2xlarge   # 1x T4, 8 vCPU, 32GB
+            - g4dn.4xlarge   # 1x T4, 16 vCPU, 64GB
+            - g4dn.8xlarge   # 1x T4, 32 vCPU, 128GB
+            - g4dn.12xlarge  # 4x T4, 48 vCPU, 192GB
+      
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: gpu-t4-runners
+      
+      # Taint GPU nodes - only pods requesting GPUs can schedule
+      taints:
+        - key: nvidia.com/gpu
+          value: "t4"
+          effect: NoSchedule
+
+---
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: gpu-t4-runners
+spec:
+  # AMI Selection (AL2023 - will install NVIDIA drivers via user data)
+  amiSelectorTerms:
+    - alias: al2023@latest
+  
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "${CLUSTER_NAME}"
+  
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "${CLUSTER_NAME}"
+  
+  role: "${CLUSTER_NAME}-node-role"
+  
+  # CRITICAL: Install NVIDIA drivers
+  userData: |
+    #!/bin/bash
+    set -euxo pipefail
+    
+    echo "Installing NVIDIA drivers..."
+    
+    # Add NVIDIA CUDA repository
+    dnf config-manager --add-repo \
+      https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
+    
+    # Install NVIDIA driver and container toolkit
+    dnf clean all
+    dnf install -y \
+      nvidia-driver-latest-dkms \
+      nvidia-container-toolkit
+    
+    # Configure containerd to use nvidia runtime
+    nvidia-ctk runtime configure --runtime=containerd
+    
+    # Restart containerd
+    systemctl restart containerd
+    
+    echo "T4 GPU node ready"
+  
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 200Gi  # Larger for GPU workloads
+        volumeType: gp3
+        iops: 5000
+        throughput: 250
+        deleteOnTermination: true
+        encrypted: true
+  
+  metadataOptions:
+    httpEndpoint: enabled
+    httpProtocolIPv6: disabled
+    httpPutResponseHopLimit: 1
+    httpTokens: required
+  
+  tags:
+    Name: "pytorch-arc-gpu-t4-runner"
+    ManagedBy: "karpenter"
+    NodePool: "gpu-t4-runners"
+    GPUType: "T4"

@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+# Staging environment configuration
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/githubConfigUrl
+        value: "https://github.com/pytorch/pytorch-canary"
+      - op: replace
+        path: /spec/githubConfigSecret
+        value: "github-secret-staging"
+    target:
+      kind: AutoscalingRunnerSet
+
+# Note: Runner name prefix "c." is applied via sed in justfile
+# This keeps the pattern generic and works with any runner name

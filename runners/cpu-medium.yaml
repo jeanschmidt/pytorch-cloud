@@ -1,0 +1,48 @@
+# Medium CPU Runner: 4 vCPU, 8GB RAM
+# GitHub workflow usage: runs-on: pytorch-cpu-medium
+
+apiVersion: actions.github.com/v1alpha1
+kind: AutoscalingRunnerSet
+metadata:
+  name: cpu-medium
+  namespace: arc-runners
+spec:
+  githubConfigUrl: "https://github.com/pytorch/pytorch"
+  githubConfigSecret: github-secret
+  
+  runnerScaleSetName: pytorch-cpu-medium
+  minRunners: 0
+  maxRunners: 50
+  
+  runnerGroup: default
+  
+  template:
+    spec:
+      containers:
+        - name: runner
+          image: ghcr.io/actions/actions-runner:latest
+          command: ["/home/runner/run.sh"]
+          env:
+            - name: RUNNER_FEATURE_FLAG_EPHEMERAL
+              value: "true"
+          resources:
+            limits:
+              cpu: "4"
+              memory: "8Gi"
+            requests:
+              cpu: "2"
+              memory: "4Gi"
+          volumeMounts:
+            - name: work
+              mountPath: /home/runner/_work
+      
+      volumes:
+        - name: work
+          ephemeral:
+            volumeClaimTemplate:
+              spec:
+                accessModes: ["ReadWriteOnce"]
+                resources:
+                  requests:
+                    storage: 50Gi
+                storageClassName: gp3

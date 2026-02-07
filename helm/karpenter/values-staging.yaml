@@ -1,0 +1,18 @@
+# Karpenter - Staging Environment Overrides
+
+# Staging can be more aggressive with consolidation
+settings:
+  featureGates:
+    spotToSpotConsolidation: true
+  batchMaxDuration: 10s
+  batchIdleDuration: 1s
+
+# Single replica for staging (save costs)
+replicas: 1
+
+# Disable PDB for staging (allow disruption)
+podDisruptionBudget:
+  enabled: false
+
+# More verbose logging for staging
+logLevel: debug

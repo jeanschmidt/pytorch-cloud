@@ -1,0 +1,48 @@
+# Large CPU Runner: 16 vCPU, 32GB RAM
+# GitHub workflow usage: runs-on: pytorch-cpu-large
+
+apiVersion: actions.github.com/v1alpha1
+kind: AutoscalingRunnerSet
+metadata:
+  name: cpu-large
+  namespace: arc-runners
+spec:
+  githubConfigUrl: "https://github.com/pytorch/pytorch"
+  githubConfigSecret: github-secret
+  
+  runnerScaleSetName: pytorch-cpu-large
+  minRunners: 0
+  maxRunners: 30
+  
+  runnerGroup: default
+  
+  template:
+    spec:
+      containers:
+        - name: runner
+          image: ghcr.io/actions/actions-runner:latest
+          command: ["/home/runner/run.sh"]
+          env:
+            - name: RUNNER_FEATURE_FLAG_EPHEMERAL
+              value: "true"
+          resources:
+            limits:
+              cpu: "16"
+              memory: "32Gi"
+            requests:
+              cpu: "8"
+              memory: "16Gi"
+          volumeMounts:
+            - name: work
+              mountPath: /home/runner/_work
+      
+      volumes:
+        - name: work
+          ephemeral:
+            volumeClaimTemplate:
+              spec:
+                accessModes: ["ReadWriteOnce"]
+                resources:
+                  requests:
+                    storage: 100Gi
+                storageClassName: gp3

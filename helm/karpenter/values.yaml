@@ -1,0 +1,70 @@
+# Karpenter Controller - Base Values
+# Install with: helm install karpenter oci://public.ecr.aws/karpenter/karpenter
+
+# Service Account (IRSA)
+serviceAccount:
+  create: true
+  name: karpenter
+  annotations: {}
+    # eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT:role/cluster-karpenter-controller
+    # Set via --set in justfile from terraform output
+
+# Controller settings
+replicas: 2
+
+# Controller resources
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+# Settings (set via --set in justfile from terraform outputs)
+settings:
+  clusterName: ""
+  clusterEndpoint: ""
+  interruptionQueue: ""
+  # Feature gates
+  featureGates:
+    spotToSpotConsolidation: true
+
+# CRITICAL: Tolerations to run on base infrastructure nodes
+# The base nodes are tainted with CriticalAddonsOnly=true:NoSchedule
+tolerations:
+  - key: CriticalAddonsOnly
+    operator: Equal
+    value: "true"
+    effect: NoSchedule
+
+# Affinity to prefer base nodes
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+            - key: role
+              operator: In
+              values:
+                - base-infrastructure
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Logging
+logLevel: info
+logEncoding: console
+
+# Metrics
+controller:
+  metrics:
+    port: 8000
+
+# Health probes
+controller:
+  healthProbe:
+    port: 8081

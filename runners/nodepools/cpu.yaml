@@ -1,0 +1,116 @@
+# Karpenter NodePool: CPU Runners
+# Provisions nodes for all CPU-based runners (small, medium, large)
+
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: cpu-runners
+spec:
+  # Limits (prevents runaway scaling)
+  limits:
+    cpu: "1000"
+    memory: "2000Gi"
+  
+  # Disruption settings
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 30s
+    budgets:
+      - nodes: "10%"  # Only disrupt 10% of nodes at a time
+  
+  # Template for nodes
+  template:
+    metadata:
+      labels:
+        workload-type: github-runner
+    
+    spec:
+      # Node requirements
+      requirements:
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot", "on-demand"]  # Prefer spot (cheaper)
+        - key: node.kubernetes.io/instance-type
+          operator: In
+          values:
+            # Intel options
+            - c6i.xlarge    # 4 vCPU, 8GB
+            - c6i.2xlarge   # 8 vCPU, 16GB
+            - c6i.4xlarge   # 16 vCPU, 32GB
+            - c6i.8xlarge   # 32 vCPU, 64GB
+            - c6i.12xlarge  # 48 vCPU, 96GB
+            # AMD options (usually cheaper)
+            - c6a.xlarge
+            - c6a.2xlarge
+            - c6a.4xlarge
+            - c6a.8xlarge
+            - c6a.12xlarge
+      
+      # Reference to EC2NodeClass
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: cpu-runners
+      
+      # No taints - any pod can schedule here
+      taints: []
+
+---
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: cpu-runners
+spec:
+  # AMI Selection (Amazon Linux 2023 EKS-optimized)
+  amiSelectorTerms:
+    - alias: al2023@latest
+  
+  # Subnet selection (will be tagged by terraform with karpenter.sh/discovery)
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "${CLUSTER_NAME}"
+  
+  # Security group selection
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "${CLUSTER_NAME}"
+  
+  # IAM Instance Profile (created by EKS module)
+  role: "${CLUSTER_NAME}-node-role"
+  
+  # User data (bootstrap script)
+  userData: |
+    #!/bin/bash
+    set -euo pipefail
+    # Standard EKS bootstrap (nodeadm handles automatically in AL2023)
+    echo "CPU node ready for GitHub Actions runners"
+  
+  # Block device mappings
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 100Gi
+        volumeType: gp3
+        iops: 3000
+        throughput: 125
+        deleteOnTermination: true
+        encrypted: true
+  
+  # Metadata options (IMDSv2 required)
+  metadataOptions:
+    httpEndpoint: enabled
+    httpProtocolIPv6: disabled
+    httpPutResponseHopLimit: 1
+    httpTokens: required
+  
+  # Tags
+  tags:
+    Name: "pytorch-arc-cpu-runner"
+    ManagedBy: "karpenter"
+    NodePool: "cpu-runners"

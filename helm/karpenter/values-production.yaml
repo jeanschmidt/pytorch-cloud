@@ -1,0 +1,19 @@
+# Karpenter - Production Environment Overrides
+
+# Production: more conservative with consolidation
+settings:
+  featureGates:
+    spotToSpotConsolidation: true
+  batchMaxDuration: 10s
+  batchIdleDuration: 1s
+
+# High availability
+replicas: 2
+
+# Enable PDB for production
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Less verbose logging for production
+logLevel: info
