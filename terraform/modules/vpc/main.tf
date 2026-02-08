@@ -66,6 +66,7 @@ resource "aws_subnet" "private" {
 
   tags = merge(
     var.tags,
+    var.private_subnet_tags,
     {
       Name                              = "${var.name}-private-${var.azs[count.index]}"
       "kubernetes.io/role/internal-elb" = "1"

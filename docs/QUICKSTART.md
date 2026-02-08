@@ -2,6 +2,9 @@
 
 This guide helps you get started with deploying ARC (Actions Runner Controller) on AWS.
 
+## ⚠️ AWS Region Check
+**Before any AWS CLI commands**: Verify correct region first. Region differs by environment (staging/production). Check with `aws configure get region` or review environment config.
+
 ## Prerequisites
 
 1. **Install required tools:**

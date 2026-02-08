@@ -2,6 +2,9 @@
 
 This document provides guidelines for AI assistants working on this codebase.
 
+## ⚠️ AWS Region Check
+**Before any AWS CLI commands**: Verify correct region first. Region differs by environment (staging/production). Check with `aws configure get region` or review environment config.
+
 ## Project Overview
 
 This is a CI infrastructure project that provides GitHub Actions self-hosted runners on AWS using Kubernetes (EKS). The project manages:

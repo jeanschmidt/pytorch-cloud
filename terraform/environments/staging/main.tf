@@ -63,6 +63,10 @@ module "vpc" {
   tags = merge(local.tags, {
     "kubernetes.io/cluster/${local.cluster_name}" = "shared"
   })
+
+  private_subnet_tags = {
+    "karpenter.sh/discovery" = local.cluster_name
+  }
 }
 
 # EKS Module
@@ -96,15 +100,6 @@ module "karpenter" {
   node_instance_role_arn = module.eks.node_instance_role_arn
 
   tags = local.tags
-}
-
-# Tag subnets for Karpenter discovery
-resource "aws_ec2_tag" "private_subnets_karpenter" {
-  count = length(module.vpc.private_subnet_ids)
-
-  resource_id = module.vpc.private_subnet_ids[count.index]
-  key         = "karpenter.sh/discovery"
-  value       = local.cluster_name
 }
 
 # Tag cluster security group for Karpenter

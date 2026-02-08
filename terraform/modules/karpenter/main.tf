@@ -53,7 +53,8 @@ resource "aws_iam_policy" "karpenter_controller" {
           "arn:aws:ec2:${var.aws_region}:*:security-group/*",
           "arn:aws:ec2:${var.aws_region}::image/*",
           "arn:aws:ec2:${var.aws_region}::snapshot/*",
-          "arn:aws:ec2:${var.aws_region}:*:subnet/*"
+          "arn:aws:ec2:${var.aws_region}:*:subnet/*",
+          "arn:aws:ec2:${var.aws_region}:*:spot-instances-request/*"
         ]
       },
       {

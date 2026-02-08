@@ -4,6 +4,11 @@ PyTorch CI infrastructure for GitHub Actions self-hosted runners on AWS using Ku
 
 ---
 
+## ⚠️ AWS Region Check
+**Before any AWS CLI commands**: Verify correct region first. Region differs by environment (staging/production). Check with `aws configure get region` or review environment config.
+
+---
+
 ## ⚠️ CRITICAL: THIS PROJECT USES OPENTOFU (tofu), NOT TERRAFORM
 
 **NEVER run `terraform` commands! Always use `tofu` or `just` commands.**
