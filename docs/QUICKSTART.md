@@ -2,6 +2,24 @@
 
 This guide helps you get started with deploying ARC (Actions Runner Controller) on AWS.
 
+## ⚠️ CRITICAL: Use OpenTofu, NOT Terraform
+
+**This project uses OpenTofu (tofu), NOT Terraform.**
+
+**Commands:**
+- ✅ Run: `tofu init` or `just tf-init staging`
+- ❌ NEVER: `terraform init`
+
+**Configuration (mise.toml):**
+- ✅ Correct: `opentofu = "1.7"`
+- ❌ Wrong: `terraform = "1.7"`
+
+Using terraform commands or installing terraform will corrupt state files and break infrastructure.
+
+See [CRITICAL-USE-TOFU.md](../CRITICAL-USE-TOFU.md) for details.
+
+---
+
 ## ⚠️ AWS Region Check
 **Before any AWS CLI commands**: Check region in `terraform/environments/{env}/variables.tf` (aws_region variable), NOT your local AWS CLI config. Your CLI region may differ from infrastructure.
 

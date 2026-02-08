@@ -2,6 +2,21 @@
 
 This project uses comprehensive linting for all code types to maintain quality and consistency.
 
+## ⚠️ CRITICAL: Use OpenTofu, NOT Terraform
+
+**Before editing configuration files:**
+
+This project uses **OpenTofu (tofu)**, NOT Terraform. When linting or editing:
+
+- ✅ `mise.toml` must use `opentofu = "version"`
+- ❌ NEVER use `terraform = "version"` in mise.toml
+- ✅ Run `tofu fmt` or `just lint-tofu`
+- ❌ NEVER run `terraform fmt`
+
+See [CRITICAL-USE-TOFU.md](../CRITICAL-USE-TOFU.md) for details.
+
+---
+
 ## 💥 Staging Environment: Break Things Freely
 **Staging/canary**: No need to drain nodes, wait for pods, or avoid disruption. This environment is for testing infrastructure changes. Kill nodes, break workflows, experiment freely - no production workloads here.
 

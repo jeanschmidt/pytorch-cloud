@@ -2,6 +2,28 @@
 
 This document describes the organization of the pytorch-cloud project.
 
+## ⚠️ CRITICAL: Use OpenTofu, NOT Terraform
+
+**Important for all developers and AI assistants:**
+
+This project uses **OpenTofu (tofu)**, NOT Terraform.
+
+### Commands:
+- ✅ Use `tofu` or `just tf-*` commands
+- ❌ NEVER use `terraform` commands
+
+### Configuration Files:
+- ✅ `mise.toml` → Use `opentofu = "version"`
+- ✅ CI workflows → Install `opentofu`
+- ❌ NEVER configure `terraform = "version"`
+- ❌ NEVER install `terraform` in any config
+
+**Why:** Terraform and OpenTofu use incompatible state formats. Mixing them corrupts infrastructure state.
+
+See [CRITICAL-USE-TOFU.md](../CRITICAL-USE-TOFU.md) for complete details.
+
+---
+
 ## 💥 Staging Environment: Break Things Freely
 **Staging/canary**: No need to drain nodes, wait for pods, or avoid disruption. This environment is for testing infrastructure changes. Kill nodes, break workflows, experiment freely - no production workloads here.
 

@@ -601,7 +601,7 @@ k8s-validate:
     for dir in kubernetes/overlays/*/; do
         env=$(basename "$dir")
         echo "Validating $env..."
-        kubectl apply --dry-run=server -k "$dir"
+        kubectl apply --dry-run=client -k "$dir"
     done
 
 # ============================================================================

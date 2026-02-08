@@ -13,15 +13,19 @@ Engineers working on this project also work on many other similar but distinct p
 
 ### What We Install Project-Locally
 
+**⚠️ CRITICAL:** This project uses **OpenTofu (tofu)**, NOT Terraform. In the table below, `opentofu` is the correct tool name in `mise.toml`. Using `terraform = "version"` installs the wrong tool and will corrupt state files.
+
 | Tool | Method | Location | Why |
 |------|--------|----------|-----|
 | Python packages | `uv` | `.venv/` | Isolated Python environment per project |
 | shellcheck | `mise` | `.mise/` | mise manages per-project tool versions |
 | shfmt | `mise` | `.mise/` | mise manages per-project tool versions |
-| tofu/terraform | `mise` | `.mise/` | mise manages per-project tool versions |
+| **opentofu** | `mise` | `.mise/` | **⚠️ Use opentofu, NOT terraform** |
 | kubectl | `mise` | `.mise/` | mise manages per-project tool versions |
 | helm | `mise` | `.mise/` | mise manages per-project tool versions |
 | packer | `mise` | `.mise/` | mise manages per-project tool versions |
+| hadolint | `mise` | `.mise/` | mise manages per-project tool versions |
+| uv | `mise` | `.mise/` | mise manages per-project tool versions |
 
 ### What We DON'T Install
 

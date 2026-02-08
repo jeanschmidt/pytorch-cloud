@@ -2,6 +2,26 @@
 
 Use this checklist to deploy pytorch-cloud from scratch.
 
+## ⚠️ CRITICAL: Use OpenTofu, NOT Terraform
+
+**This project uses OpenTofu (tofu), NOT Terraform.**
+
+### What to do:
+- ✅ Run `tofu` or `just tf-*` commands (NOT `terraform`)
+- ✅ Use `opentofu = "1.7"` in mise.toml
+- ❌ NEVER run `terraform` commands
+- ❌ NEVER use `terraform = "version"` in config files
+
+### Why it matters:
+- Terraform and OpenTofu use different state formats
+- Mixing them corrupts state files
+- Corrupted state can destroy infrastructure
+- Recovery is difficult/impossible
+
+See [CRITICAL-USE-TOFU.md](../CRITICAL-USE-TOFU.md) for complete details.
+
+---
+
 ## 💥 Staging Environment: Break Things Freely
 **Staging/canary**: No need to drain nodes, wait for pods, or avoid disruption. This environment is for testing infrastructure changes. Kill nodes, break workflows, experiment freely - no production workloads here.
 

@@ -7,6 +7,22 @@ Thank you for your interest in contributing to pytorch-cloud!
 
 ## Development Setup
 
+### ⚠️ CRITICAL: Use OpenTofu, NOT Terraform
+
+**Before starting:** This project uses **OpenTofu (tofu)**, NOT Terraform.
+
+**Commands:**
+- ✅ Use `tofu` or `just tf-*` commands
+- ❌ NEVER use `terraform` commands
+
+**Configuration files:**
+- ✅ `mise.toml` must have `opentofu = "version"`
+- ❌ NEVER use `terraform = "version"`
+
+Using terraform will corrupt state files. See [CRITICAL-USE-TOFU.md](CRITICAL-USE-TOFU.md).
+
+---
+
 1. **Install prerequisites:**
    - [mise](https://mise.jdx.dev/) - Tool version manager
    - [just](https://just.systems/) - Command runner

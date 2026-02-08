@@ -14,14 +14,21 @@ PyTorch CI infrastructure for GitHub Actions self-hosted runners on AWS using Ku
 
 ## ⚠️ CRITICAL: THIS PROJECT USES OPENTOFU (tofu), NOT TERRAFORM
 
-**NEVER run `terraform` commands! Always use `tofu` or `just` commands.**
+**NEVER run `terraform` commands or configure tools to install `terraform`!**
 
-Running `terraform` instead of `tofu` will **corrupt the state file** and break deployments.
+This project uses **OpenTofu**, the open-source fork of Terraform. Using terraform will corrupt the state file.
 
+### Commands - Use tofu, NOT terraform:
 ✅ Use: `tofu plan` or `just tf-plan staging`  
 ❌ Never: `terraform plan`
 
-See [CRITICAL-USE-TOFU.md](CRITICAL-USE-TOFU.md) for details.
+### Configuration - Install opentofu, NOT terraform:
+✅ `mise.toml`: `opentofu = "1.7"`  
+❌ `mise.toml`: `terraform = "1.7"`
+
+**Why this matters:** Mixing terraform and tofu corrupts state files and can destroy infrastructure.
+
+See [CRITICAL-USE-TOFU.md](CRITICAL-USE-TOFU.md) for complete details.
 
 ---
 
