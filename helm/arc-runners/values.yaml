@@ -30,6 +30,12 @@ containerMode:
 # Override in environment-specific values to use custom ECR images
 template:
   spec:
+    # Run as runner user (UID 1000) for correct volume permissions
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+
     containers:
       - name: runner
         image: ghcr.io/actions/actions-runner:latest

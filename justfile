@@ -49,6 +49,7 @@ clean:
     find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
     find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
     find . -type f -name "*.tfplan" -delete 2>/dev/null || true
+    find . -type f -name "tfplan" -delete 2>/dev/null || true
     @echo "Cleaning non-whitelisted markdown files..."
     @find . -type f -name "*.md" ! -path "./.git/*" | while IFS= read -r f; do if git check-ignore -q "$f" 2>/dev/null; then rm -f "$f"; fi; done
     @echo "✓ Cleaned all caches and generated files"
@@ -207,7 +208,7 @@ lint-packer:
 # DEPLOYMENT
 # ============================================================================
 
-# Full deployment: infrastructure + control plane + runners
+# Full deployment: infrastructure + control plane + images + runners
 deploy env: _auto-setup
     #!/usr/bin/env bash
     set -euo pipefail
@@ -218,7 +219,8 @@ deploy env: _auto-setup
     echo "This will:"
     echo "  1. Deploy infrastructure (VPC, EKS, base nodes)"
     echo "  2. Deploy control plane (Karpenter, ARC controller)"
-    echo "  3. Deploy runners (all YAML files in runners/)"
+    echo "  3. Build and push Docker images"
+    echo "  4. Deploy runners (all YAML files in runners/)"
     echo ""
     read -p "Continue? [y/N] " -n 1 -r
     echo
@@ -229,6 +231,7 @@ deploy env: _auto-setup
     echo ""
     just deploy-infra {{env}}
     just deploy-control-plane {{env}}
+    just deploy-images {{env}}
     just deploy-runners {{env}}
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -326,11 +329,85 @@ deploy-control-plane env: _auto-setup
     
     echo "✅ Control plane deployed"
 
+# Build and push Docker images to ECR
+deploy-images env: _auto-setup
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🐳 STEP 3: Docker Images"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    # Get AWS account and region from Terraform outputs
+    cd terraform/environments/{{env}}
+    AWS_REGION=$(tofu output -raw aws_region 2>/dev/null || echo "us-west-2")
+    AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+    cd -
+    echo ""
+    
+    ECR_REGISTRY="${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+    REPO_PREFIX="pytorch-cloud"
+    
+    # Login to ECR
+    echo "Logging in to ECR..."
+    aws ecr get-login-password --region "${AWS_REGION}" | \
+        docker login --username AWS --password-stdin "${ECR_REGISTRY}"
+    echo ""
+    
+    # Create ECR repositories if they don't exist
+    for repo in runner-base runner-gpu; do
+        echo "Ensuring ECR repository exists: ${REPO_PREFIX}/${repo}..."
+        aws ecr describe-repositories \
+            --repository-names "${REPO_PREFIX}/${repo}" \
+            --region "${AWS_REGION}" 2>/dev/null || \
+        aws ecr create-repository \
+            --repository-name "${REPO_PREFIX}/${repo}" \
+            --region "${AWS_REGION}" \
+            --image-scanning-configuration scanOnPush=true \
+            --output text > /dev/null
+    done
+    echo ""
+    
+    # Set up buildx for multi-platform builds (if not already set up)
+    echo "Setting up Docker buildx for multi-platform builds..."
+    docker buildx create --name pytorch-builder --driver docker-container --bootstrap 2>/dev/null || true
+    docker buildx use pytorch-builder
+    echo ""
+    
+    # Build multi-platform images for linux/amd64 (EKS nodes are amd64)
+    echo "Building runner-base for linux/amd64..."
+    docker buildx build \
+        --platform linux/amd64 \
+        -t "${ECR_REGISTRY}/${REPO_PREFIX}/runner-base:latest" \
+        -t "${ECR_REGISTRY}/${REPO_PREFIX}/runner-base:{{env}}" \
+        -f docker/runner-base/Dockerfile \
+        --push \
+        docker/runner-base/
+    echo ""
+    
+    echo "Building runner-gpu for linux/amd64..."
+    docker buildx build \
+        --platform linux/amd64 \
+        -t "${ECR_REGISTRY}/${REPO_PREFIX}/runner-gpu:latest" \
+        -t "${ECR_REGISTRY}/${REPO_PREFIX}/runner-gpu:{{env}}" \
+        -f docker/runner-gpu/Dockerfile \
+        --push \
+        docker/runner-gpu/
+    echo ""
+    
+    echo "✅ Docker images built and pushed to ECR"
+    echo ""
+    echo "Images available at:"
+    echo "  - ${ECR_REGISTRY}/${REPO_PREFIX}/runner-base:latest"
+    echo "  - ${ECR_REGISTRY}/${REPO_PREFIX}/runner-base:{{env}}"
+    echo "  - ${ECR_REGISTRY}/${REPO_PREFIX}/runner-gpu:latest"
+    echo "  - ${ECR_REGISTRY}/${REPO_PREFIX}/runner-gpu:{{env}}"
+
 # Deploy runners via Helm (ARC requires Helm, not kubectl apply)
 deploy-runners env: _auto-setup
     @echo ""
     @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo "🏃 STEP 3: Runners & NodePools"
+    @echo "🏃 STEP 4: Runners & NodePools"
     @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     @echo ""
     @echo "Deploying Karpenter NodePools and ARC runner scale sets..."
@@ -364,44 +441,88 @@ _deploy-nodepools env:
 
 # Deploy CPU Small runner
 _deploy-runner-cpu-small env:
-    @echo "  → cpu-small"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd terraform/environments/{{env}}
+    AWS_REGION=$(tofu output -raw aws_region 2>/dev/null || echo "us-west-2")
+    AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+    cd -
+    ECR_IMAGE="${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/pytorch-cloud/runner-base:{{env}}"
+    echo "  → cpu-small (using ${ECR_IMAGE})"
     helm upgrade --install arc-cpu-small \
         --namespace arc-runners \
         --create-namespace \
         -f helm/runners/cpu-small-{{env}}.yaml \
+        --set template.spec.containers[0].image="${ECR_IMAGE}" \
+        --set template.spec.securityContext.runAsUser=1000 \
+        --set template.spec.securityContext.runAsGroup=1000 \
+        --set template.spec.securityContext.fsGroup=1000 \
         oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
         --version 0.13.1 \
         --wait
 
 # Deploy CPU Medium runner
 _deploy-runner-cpu-medium env:
-    @echo "  → cpu-medium"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd terraform/environments/{{env}}
+    AWS_REGION=$(tofu output -raw aws_region 2>/dev/null || echo "us-west-2")
+    AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+    cd -
+    ECR_IMAGE="${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/pytorch-cloud/runner-base:{{env}}"
+    echo "  → cpu-medium (using ${ECR_IMAGE})"
     helm upgrade --install arc-cpu-medium \
         --namespace arc-runners \
         --create-namespace \
         -f helm/runners/cpu-medium-{{env}}.yaml \
+        --set template.spec.containers[0].image="${ECR_IMAGE}" \
+        --set template.spec.securityContext.runAsUser=1000 \
+        --set template.spec.securityContext.runAsGroup=1000 \
+        --set template.spec.securityContext.fsGroup=1000 \
         oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
         --version 0.13.1 \
         --wait
 
 # Deploy CPU Large runner
 _deploy-runner-cpu-large env:
-    @echo "  → cpu-large"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd terraform/environments/{{env}}
+    AWS_REGION=$(tofu output -raw aws_region 2>/dev/null || echo "us-west-2")
+    AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+    cd -
+    ECR_IMAGE="${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/pytorch-cloud/runner-base:{{env}}"
+    echo "  → cpu-large (using ${ECR_IMAGE})"
     helm upgrade --install arc-cpu-large \
         --namespace arc-runners \
         --create-namespace \
         -f helm/runners/cpu-large-{{env}}.yaml \
+        --set template.spec.containers[0].image="${ECR_IMAGE}" \
+        --set template.spec.securityContext.runAsUser=1000 \
+        --set template.spec.securityContext.runAsGroup=1000 \
+        --set template.spec.securityContext.fsGroup=1000 \
         oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
         --version 0.13.1 \
         --wait
 
 # Deploy GPU T4 runner
 _deploy-runner-gpu-t4 env:
-    @echo "  → gpu-t4"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd terraform/environments/{{env}}
+    AWS_REGION=$(tofu output -raw aws_region 2>/dev/null || echo "us-west-2")
+    AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+    cd -
+    ECR_IMAGE="${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/pytorch-cloud/runner-gpu:{{env}}"
+    echo "  → gpu-t4 (using ${ECR_IMAGE})"
     helm upgrade --install arc-gpu-t4 \
         --namespace arc-runners \
         --create-namespace \
         -f helm/runners/gpu-t4-{{env}}.yaml \
+        --set template.spec.containers[0].image="${ECR_IMAGE}" \
+        --set template.spec.securityContext.runAsUser=1000 \
+        --set template.spec.securityContext.runAsGroup=1000 \
+        --set template.spec.securityContext.fsGroup=1000 \
         oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
         --version 0.13.1 \
         --wait

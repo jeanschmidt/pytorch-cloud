@@ -23,8 +23,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Docker CLI (for docker-in-docker support)
-RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - \
-    && add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
+RUN install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc \
+    && chmod a+r /etc/apt/keyrings/docker.asc \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list \
     && apt-get update \
     && apt-get install -y docker-ce-cli \
     && rm -rf /var/lib/apt/lists/*
@@ -43,8 +45,8 @@ RUN useradd -m -s /bin/bash runner \
 # Install runner dependencies
 RUN cd /home/runner/actions-runner && ./bin/installdependencies.sh
 
-# Set up workspace directory
-RUN mkdir -p /home/runner/work && chown -R runner:runner /home/runner/work
+# Set up workspace directory (GitHub Actions uses _work with underscore)
+RUN mkdir -p /home/runner/_work && chown -R runner:runner /home/runner/_work
 
 # Install common development tools
 RUN apt-get update && apt-get install -y \

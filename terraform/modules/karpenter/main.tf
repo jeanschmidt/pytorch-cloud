@@ -124,9 +124,6 @@ resource "aws_iam_policy" "karpenter_controller" {
           StringEquals = {
             "aws:ResourceTag/kubernetes.io/cluster/${var.cluster_name}" = "owned"
           }
-          StringLike = {
-            "aws:RequestTag/karpenter.sh/nodepool" = "*"
-          }
         }
       },
       {

@@ -9,6 +9,12 @@ maxRunners: 20
 
 template:
   spec:
+    # Run as runner user (UID 1000) for correct volume permissions
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+
     containers:
       - name: runner
         # Override with custom image once pushed to ECR
@@ -20,6 +26,9 @@ template:
           requests:
             cpu: "4"
             memory: "8Gi"
+        volumeMounts:
+          - name: work
+            mountPath: /home/runner/_work
 
     volumes:
       - name: work

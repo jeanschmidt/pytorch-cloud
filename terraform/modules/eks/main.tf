@@ -190,8 +190,8 @@ resource "aws_iam_role_policy_attachment" "ebs_csi_driver" {
 }
 
 resource "aws_eks_addon" "ebs_csi_driver" {
-  cluster_name                = aws_eks_cluster.this.name
-  addon_name                  = "aws-ebs-csi-driver"
+  cluster_name = aws_eks_cluster.this.name
+  addon_name   = "aws-ebs-csi-driver"
   # Omit addon_version to use AWS-recommended default version
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "PRESERVE"
