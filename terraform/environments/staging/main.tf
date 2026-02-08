@@ -83,8 +83,9 @@ module "eks" {
   cluster_endpoint_public_access  = true
 
   # Base infrastructure nodes (fixed size, tainted)
-  base_node_count         = var.base_node_count
-  base_node_instance_type = var.base_node_instance_type
+  base_node_count                      = var.base_node_count
+  base_node_instance_type              = var.base_node_instance_type
+  base_node_max_unavailable_percentage = var.base_node_max_unavailable_percentage
 
   tags = local.tags
 }

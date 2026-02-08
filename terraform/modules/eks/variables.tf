@@ -55,6 +55,12 @@ variable "base_node_instance_type" {
   default     = "m5.xlarge"
 }
 
+variable "base_node_max_unavailable_percentage" {
+  description = "Maximum percentage of base nodes to update simultaneously (100 = all at once, no drainage)"
+  type        = number
+  default     = 100
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

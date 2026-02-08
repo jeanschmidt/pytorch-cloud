@@ -222,6 +222,12 @@ resource "aws_eks_node_group" "base" {
     min_size     = var.base_node_count
   }
 
+  # AGGRESSIVE UPDATE STRATEGY: Replace all nodes immediately
+  # No pod drainage, no waiting - maximum speed for infrastructure changes
+  update_config {
+    max_unavailable_percentage = var.base_node_max_unavailable_percentage
+  }
+
   instance_types = [var.base_node_instance_type]
   capacity_type  = "ON_DEMAND"
 
@@ -244,16 +250,19 @@ resource "aws_eks_node_group" "base" {
     version = aws_launch_template.base.latest_version
   }
 
+  # Force immediate updates - no grace period
   lifecycle {
     ignore_changes = [
       scaling_config[0].desired_size, # Allow manual scaling without Terraform recreation
     ]
+    create_before_destroy = false # Destroy old nodes immediately, don't wait
   }
 
+  # Reduced timeouts for faster feedback
   timeouts {
-    create = "30m"
-    update = "30m"
-    delete = "30m"
+    create = "15m" # Reduced from 30m
+    update = "15m" # Reduced from 30m
+    delete = "10m" # Reduced from 30m
   }
 
   tags = merge(

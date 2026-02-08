@@ -75,9 +75,11 @@ affinity:
                 - base-infrastructure
 
 # Pod disruption budget
+# For staging: Allow aggressive node updates by permitting all pods to be disrupted
+# Karpenter can reschedule quickly, so no need for conservative PDBs
 podDisruptionBudget:
   enabled: true
-  minAvailable: 1
+  minAvailable: 0 # Allow all pods to be disrupted simultaneously
 
 # Logging
 logLevel: info
