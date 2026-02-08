@@ -1,0 +1,186 @@
+name: Test Kubernetes Mode
+
+# This workflow validates that Kubernetes mode is working correctly
+# Test in staging environment before deploying to production
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  test-cpu-small:
+    name: Test CPU Small Runner
+    runs-on: c.pytorch-cpu-small  # Staging runner
+    container:
+      image: python:3.11-slim
+    steps:
+      - name: Check Python version
+        run: python --version
+      
+      - name: Test pip
+        run: pip --version
+      
+      - name: Install and test numpy
+        run: |
+          pip install numpy
+          python -c "import numpy; print(f'NumPy version: {numpy.__version__}')"
+      
+      - name: Verify container environment
+        run: |
+          echo "Container is working!"
+          uname -a
+          cat /etc/os-release
+
+  test-cpu-medium:
+    name: Test CPU Medium Runner
+    runs-on: c.pytorch-cpu-medium  # Staging runner
+    container:
+      image: ubuntu:22.04
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y python3 python3-pip curl
+      
+      - name: Test installed tools
+        run: |
+          python3 --version
+          pip3 --version
+          curl --version
+      
+      - name: Verify resources
+        run: |
+          echo "CPU info:"
+          nproc
+          echo "Memory info:"
+          free -h
+
+  test-gpu-t4:
+    name: Test GPU T4 Runner
+    runs-on: c.pytorch-gpu-t4  # Staging GPU runner
+    container:
+      image: pytorch/pytorch:2.5.0-cuda12.4-cudnn9-runtime
+      options: --gpus all
+    steps:
+      - name: Check NVIDIA driver
+        run: nvidia-smi
+      
+      - name: Check CUDA version
+        run: nvcc --version || echo "nvcc not in runtime image (expected)"
+      
+      - name: Test PyTorch GPU
+        run: |
+          python -c "
+          import torch
+          print(f'PyTorch version: {torch.__version__}')
+          print(f'CUDA available: {torch.cuda.is_available()}')
+          print(f'CUDA version: {torch.version.cuda}')
+          if torch.cuda.is_available():
+              print(f'Device count: {torch.cuda.device_count()}')
+              print(f'Device name: {torch.cuda.get_device_name(0)}')
+              print(f'Device capability: {torch.cuda.get_device_capability(0)}')
+              # Test GPU computation
+              x = torch.randn(1000, 1000).cuda()
+              y = torch.matmul(x, x)
+              print(f'GPU computation successful!')
+              print(f'Result shape: {y.shape}')
+          else:
+              print('ERROR: CUDA not available!')
+              exit(1)
+          "
+      
+      - name: Verify GPU memory
+        run: |
+          nvidia-smi --query-gpu=memory.total,memory.used,memory.free --format=csv
+
+  test-custom-cuda:
+    name: Test Custom CUDA Container
+    runs-on: c.pytorch-gpu-t4
+    container:
+      image: nvidia/cuda:12.4.0-base-ubuntu22.04
+      options: --gpus all
+    steps:
+      - name: Verify NVIDIA runtime
+        run: nvidia-smi
+      
+      - name: Check CUDA environment
+        run: |
+          echo "CUDA_VERSION=${CUDA_VERSION}"
+          echo "PATH=${PATH}"
+          echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}"
+      
+      - name: Test CUDA samples (if available)
+        run: |
+          # Just verify the environment is working
+          nvidia-smi -L
+
+  test-docker-in-docker:
+    name: Test Docker-in-Docker (if needed)
+    runs-on: c.pytorch-cpu-small
+    container:
+      image: docker:24-dind
+      options: --privileged
+    steps:
+      - name: Wait for Docker daemon
+        run: |
+          timeout 30 sh -c 'until docker info; do sleep 1; done'
+      
+      - name: Test Docker
+        run: |
+          docker --version
+          docker run --rm hello-world
+      
+      - name: Build test image
+        run: |
+          echo 'FROM alpine:latest' > Dockerfile
+          echo 'RUN echo "Test build successful"' >> Dockerfile
+          docker build -t test-image .
+          docker run --rm test-image
+
+  test-workflow-features:
+    name: Test GitHub Actions Features
+    runs-on: c.pytorch-cpu-small
+    container:
+      image: node:20-alpine
+    steps:
+      - name: Checkout code (if repo exists)
+        uses: actions/checkout@v4
+        continue-on-error: true
+      
+      - name: Test environment variables
+        run: |
+          echo "GITHUB_WORKFLOW=${GITHUB_WORKFLOW}"
+          echo "GITHUB_RUN_ID=${GITHUB_RUN_ID}"
+          echo "GITHUB_ACTOR=${GITHUB_ACTOR}"
+      
+      - name: Test Node.js
+        run: |
+          node --version
+          npm --version
+      
+      - name: Test container networking
+        run: |
+          apk add --no-cache curl
+          curl -I https://www.google.com
+
+  summary:
+    name: Test Summary
+    runs-on: c.pytorch-cpu-small
+    needs: [test-cpu-small, test-cpu-medium, test-gpu-t4, test-custom-cuda, test-docker-in-docker, test-workflow-features]
+    if: always()
+    container:
+      image: alpine:latest
+    steps:
+      - name: Report results
+        run: |
+          echo "✅ All Kubernetes mode tests completed!"
+          echo "The following runners were tested:"
+          echo "  - CPU Small (Python)"
+          echo "  - CPU Medium (Ubuntu)"
+          echo "  - GPU T4 (PyTorch)"
+          echo "  - GPU T4 (CUDA)"
+          echo "  - Docker-in-Docker"
+          echo "  - Workflow Features"

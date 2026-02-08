@@ -1,34 +1,17 @@
-# Base runner image with common tools
+# Minimal base runner for Kubernetes mode
+# Workflows specify container images - this is just the runner orchestrator
 FROM ubuntu:22.04
 
-# Avoid interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install base dependencies
+# Install ONLY essential tools for runner operation and debugging
 RUN apt-get update && apt-get install -y \
     curl \
     git \
     jq \
-    build-essential \
-    libssl-dev \
-    libffi-dev \
-    python3 \
-    python3-pip \
-    python3-venv \
-    wget \
-    unzip \
-    apt-transport-https \
     ca-certificates \
-    software-properties-common \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Docker CLI (for docker-in-docker support)
-RUN install -m 0755 -d /etc/apt/keyrings \
-    && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc \
-    && chmod a+r /etc/apt/keyrings/docker.asc \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list \
-    && apt-get update \
-    && apt-get install -y docker-ce-cli \
+    tar \
+    gzip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install GitHub Actions Runner
@@ -45,19 +28,11 @@ RUN useradd -m -s /bin/bash runner \
 # Install runner dependencies
 RUN cd /home/runner/actions-runner && ./bin/installdependencies.sh
 
-# Set up workspace directory (GitHub Actions uses _work with underscore)
+# Create workspace directory
 RUN mkdir -p /home/runner/_work && chown -R runner:runner /home/runner/_work
-
-# Install common development tools
-RUN apt-get update && apt-get install -y \
-    cmake \
-    ninja-build \
-    ccache \
-    && rm -rf /var/lib/apt/lists/*
 
 USER runner
 WORKDIR /home/runner/actions-runner
 
-# Runner will be configured at runtime
 ENTRYPOINT ["/home/runner/actions-runner/bin/Runner.Listener"]
 CMD ["run"]

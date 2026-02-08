@@ -18,13 +18,15 @@ maxRunners: 5
 # Runner group
 runnerGroup: "default"
 
-# Container mode - dind for Docker support
+# Container mode - use kubernetes (workflows specify container:)
 containerMode:
-  type: "dind"
+  type: "kubernetes"
 
-# GPU Runner template with NVIDIA GPU resources
+# GPU Runner template - lightweight runner, GPU allocated to workflow containers
 template:
   spec:
+    serviceAccountName: arc-runner
+    
     # Node selector - only schedule on GPU nodes
     nodeSelector:
       nvidia.com/gpu: "true"
@@ -38,24 +40,17 @@ template:
 
     containers:
       - name: runner
-        # Use custom GPU image with CUDA
+        # Lightweight runner image - workflows specify GPU containers
         image: ghcr.io/actions/actions-runner:latest
-        # Override in env-specific values: <account>.dkr.ecr.us-west-2.amazonaws.com/pytorch-cloud/runner-gpu:latest
         command: ["/home/runner/run.sh"]
         env:
           - name: RUNNER_FEATURE_FLAG_EPHEMERAL
             value: "true"
-          - name: NVIDIA_VISIBLE_DEVICES
-            value: "all"
-          - name: NVIDIA_DRIVER_CAPABILITIES
-            value: "compute,utility"
         resources:
           limits:
-            nvidia.com/gpu: 1  # Request 1 GPU
             cpu: "8"
             memory: "32Gi"
           requests:
-            nvidia.com/gpu: 1
             cpu: "4"
             memory: "16Gi"
         volumeMounts:
@@ -72,7 +67,7 @@ template:
               resources:
                 requests:
                   storage: 100Gi
-              storageClassName: gp2
+              storageClassName: gp3
 
 # Controller service account
 controllerServiceAccount:

@@ -6,6 +6,7 @@ resources:
   - nvidia-device-plugin.yaml
   - namespace.yaml
   - runner-hooks-configmap.yaml
+  - runner-serviceaccount.yaml
   - storageclass-gp3.yaml
 
 # Don't set a default namespace - resources specify their own

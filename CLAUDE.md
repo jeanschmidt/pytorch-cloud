@@ -108,8 +108,8 @@ just tf-apply staging
 # Kubernetes
 just k8s-apply staging
 
-# Docker
-just docker-build runner-gpu
+# Docker (optional - using official ghcr.io image by default)
+just docker-build runner-base
 
 # Helm (GitHub ARC)
 just helm-install-arc staging

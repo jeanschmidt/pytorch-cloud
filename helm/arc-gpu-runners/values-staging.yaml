@@ -7,8 +7,13 @@ runnerScaleSetName: "pytorch-gpu-runners-staging"
 minRunners: 0
 maxRunners: 2
 
+containerMode:
+  type: "kubernetes"
+
 template:
   spec:
+    serviceAccountName: arc-runner
+    
     nodeSelector:
       nvidia.com/gpu: "true"
 
@@ -20,17 +25,21 @@ template:
 
     containers:
       - name: runner
-        # Override with custom GPU image
-        # image: <account>.dkr.ecr.us-west-2.amazonaws.com/pytorch-cloud/runner-gpu:latest
+        image: ghcr.io/actions/actions-runner:latest
+        command: ["/home/runner/run.sh"]
+        env:
+          - name: RUNNER_FEATURE_FLAG_EPHEMERAL
+            value: "true"
         resources:
           limits:
-            nvidia.com/gpu: 1
             cpu: "4"
             memory: "16Gi"
           requests:
-            nvidia.com/gpu: 1
             cpu: "2"
             memory: "8Gi"
+        volumeMounts:
+          - name: work
+            mountPath: /home/runner/_work
 
     volumes:
       - name: work
@@ -41,4 +50,4 @@ template:
               resources:
                 requests:
                   storage: 50Gi
-              storageClassName: gp2
+              storageClassName: gp3

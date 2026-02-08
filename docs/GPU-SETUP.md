@@ -4,41 +4,51 @@ This guide covers GPU-specific configuration and troubleshooting for pytorch-clo
 
 ## Overview
 
-pytorch-cloud provides NVIDIA GPU support for PyTorch CI/CD workloads through:
+pytorch-cloud provides NVIDIA GPU support for PyTorch CI/CD workloads through **Kubernetes mode**:
 
 1. **EKS GPU Node Groups** - EC2 instances with NVIDIA GPUs (g4dn, p3, p4 families)
 2. **NVIDIA Device Plugin** - Kubernetes DaemonSet for GPU discovery
-3. **Custom GPU AMIs** - Pre-configured with NVIDIA drivers
-4. **GPU-enabled Runner Images** - Docker images with CUDA and PyTorch dependencies
-5. **Docker GPU Runtime** - nvidia-docker2 for container GPU access
+3. **Lightweight Runner Pods** - Orchestrate workflows, GPU allocated to job containers
+4. **Workflow Containers** - Users specify GPU-enabled containers with CUDA/PyTorch
+5. **Dynamic GPU Allocation** - GPUs assigned to job containers, not runner pods
 
-## Architecture
+## Architecture (Kubernetes Mode)
 
 ```
 ┌─────────────────────────────────────────────┐
 │ GitHub Actions Workflow                     │
-│ runs-on: [self-hosted, gpu]                 │
+│ runs-on: pytorch-gpu-t4                     │
+│ container:                                  │
+│   image: pytorch/pytorch:2.5.0-cuda12.4    │
+│   options: --gpus all                       │
 └─────────────────┬───────────────────────────┘
                   │
                   v
 ┌─────────────────────────────────────────────┐
 │ ARC Controller                               │
-│ Manages runner lifecycle                    │
+│ Creates runner pod + job container          │
 └─────────────────┬───────────────────────────┘
                   │
                   v
 ┌─────────────────────────────────────────────┐
-│ Runner Pod (GPU)                             │
-│ - Requests: nvidia.com/gpu=1                 │
-│ - Tolerates: nvidia.com/gpu=true             │
-│ - Has CUDA toolkit, PyTorch deps             │
+│ Runner Pod (Lightweight)                    │
+│ - Orchestrates workflow                     │
+│ - No GPU request (on GPU node via selector)│
+│ - Creates job container pods via K8s API    │
+└─────────────────┬───────────────────────────┘
+                  │
+                  v
+┌─────────────────────────────────────────────┐
+│ Job Container Pod                            │
+│ - User-specified image (pytorch/pytorch)    │
+│ - Requests: nvidia.com/gpu=1                │
+│ - Has CUDA, cuDNN, PyTorch, etc.            │
 └─────────────────┬───────────────────────────┘
                   │
                   v
 ┌─────────────────────────────────────────────┐
 │ EKS GPU Node                                 │
 │ - NVIDIA drivers installed                   │
-│ - nvidia-docker2 configured                  │
 │ - Device plugin exposes GPUs                 │
 └─────────────────┬───────────────────────────┘
                   │
@@ -75,17 +85,28 @@ GPU nodes are configured with:
 
 **Location:** `terraform/modules/eks/main.tf`
 
-### 3. GPU-enabled Runner Image
+### 3. GPU Workflow Containers
 
-The `runner-gpu` Docker image includes:
-- Ubuntu 22.04 base
-- NVIDIA CUDA 12.1 toolkit
-- cuDNN libraries
-- PyTorch build dependencies (cmake, ninja, ccache)
-- GitHub Actions runner
-- Common Python packages (numpy, pyyaml, etc.)
+GPU support is provided through **workflow-specified containers**, NOT the runner image.
 
-**Location:** `docker/runner-gpu/Dockerfile`
+**Runner pod**: Lightweight, no GPU drivers (just orchestrates workflows)
+**Workflow container**: Contains CUDA, cuDNN, PyTorch, etc. (user-specified)
+
+Example workflow:
+
+```yaml
+jobs:
+  gpu-build:
+    runs-on: pytorch-gpu-t4
+    container:
+      image: nvidia/cuda:12.4.0-devel-ubuntu22.04
+      options: --gpus all
+    steps:
+      - name: Check GPU
+        run: nvidia-smi
+```
+
+The Kubernetes device plugin ensures GPU resources are allocated to the workflow container pod.
 
 ### 4. Custom GPU AMIs
 
@@ -127,61 +148,20 @@ kubectl get pods -n kube-system -l name=nvidia-device-plugin-ds
 kubectl logs -n kube-system -l name=nvidia-device-plugin-ds
 ```
 
-### Step 3: Build and Deploy GPU Runner Images
+### Step 3: Deploy GPU Runners
+
+GPU runners are already configured in `helm/runners/gpu-t4-*.yaml` files.
 
 ```bash
-# Build GPU runner image
-just docker-build runner-gpu
+# Deploy runners (includes GPU runners)
+just deploy-runners staging
 
-# Tag for ECR
-docker tag runner-gpu:latest <account>.dkr.ecr.us-west-2.amazonaws.com/pytorch-cloud/runner-gpu:latest
-
-# Push to ECR
-aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin <account>.dkr.ecr.us-west-2.amazonaws.com
-docker push <account>.dkr.ecr.us-west-2.amazonaws.com/pytorch-cloud/runner-gpu:latest
+# Verify GPU runners are ready
+kubectl get autoscalingrunnersets -n arc-runners
+kubectl get pods -n arc-runners -l app.kubernetes.io/component=runner
 ```
 
-### Step 4: Configure ARC for GPU Runners
-
-Update `helm/arc-runners/values-staging.yaml`:
-
-```yaml
-runnerLabels:
-  - self-hosted
-  - linux
-  - x64
-  - gpu
-  - cuda
-
-# Request GPU resources
-runnerResources:
-  limits:
-    nvidia.com/gpu: 1
-    cpu: 8
-    memory: 32Gi
-  requests:
-    nvidia.com/gpu: 1
-    cpu: 4
-    memory: 16Gi
-
-# Tolerate GPU node taints
-tolerations:
-  - key: nvidia.com/gpu
-    operator: Equal
-    value: "true"
-    effect: NoSchedule
-
-# Use custom GPU image
-image:
-  repository: <account>.dkr.ecr.us-west-2.amazonaws.com/pytorch-cloud/runner-gpu
-  tag: latest
-```
-
-Then deploy:
-
-```bash
-just helm-install-runners staging
-```
+**Note**: The runner pod itself is lightweight and does NOT request GPU resources. GPU is allocated to workflow containers specified in your GitHub Actions workflows.
 
 ## Testing GPU Support
 
@@ -229,7 +209,10 @@ on: [push]
 
 jobs:
   test-gpu:
-    runs-on: [self-hosted, linux, x64, gpu]
+    runs-on: pytorch-gpu-t4  # Or c.pytorch-gpu-t4 for staging
+    container:
+      image: pytorch/pytorch:2.5.0-cuda12.4-cudnn9-runtime
+      options: --gpus all
     steps:
       - uses: actions/checkout@v4
       
@@ -256,6 +239,8 @@ jobs:
               print(f'GPU computation successful!')
           "
 ```
+
+**IMPORTANT**: The `container:` tag is **required** for all GPU workflows. The container image must include CUDA and any dependencies needed for your job.
 
 ## Troubleshooting
 

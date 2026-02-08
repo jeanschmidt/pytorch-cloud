@@ -53,10 +53,11 @@ This project follows strict separation of concerns:
 
 ### Docker Changes
 
-1. Update Dockerfile in `docker/<image>/`
-2. Build: `just docker-build <image>`
+1. Update Dockerfile in `docker/runner-base/`
+2. Build: `just docker-build runner-base`
 3. Test the image locally
-4. Push to registry: `just docker-push <registry>/<image>:<tag>`
+4. Note: Single lightweight image used for all runners (CPU and GPU)
+5. Workflows specify their own containers with required dependencies
 
 ### Kubernetes Changes
 

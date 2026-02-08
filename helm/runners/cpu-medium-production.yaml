@@ -8,7 +8,7 @@ maxRunners: 100
 runnerGroup: "default"
 
 containerMode:
-  type: "dind"
+  type: "kubernetes"
 
 controllerServiceAccount:
   namespace: arc-systems
@@ -33,6 +33,7 @@ listenerTemplate:
 
 template:
   spec:
+    serviceAccountName: arc-runner
     containers:
       - name: runner
         image: ghcr.io/actions/actions-runner:latest

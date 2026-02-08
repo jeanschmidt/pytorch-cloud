@@ -29,10 +29,7 @@ pytorch-cloud/
 │       └── production/
 │
 ├── docker/                # Cloud-agnostic: Container images
-│   ├── runner-base/       # Base runner image
-│   │   ├── Dockerfile
-│   │   └── .dockerignore
-│   └── runner-gpu/        # GPU-enabled runner image
+│   └── runner-base/       # Lightweight runner (optional - using ghcr.io official)
 │       ├── Dockerfile
 │       └── .dockerignore
 │
@@ -167,16 +164,21 @@ just k8s-validate
 
 ### Docker (`docker/`)
 
-**Purpose:** Build custom runner images
+**Purpose:** Optional custom runner image (uses `ghcr.io/actions/actions-runner:latest` by default)
 
 **Components:**
-- `runner-base`: Standard runner with dev tools
-- `runner-gpu`: GPU-enabled runner with CUDA
+- `runner-base`: Lightweight runner template (optional - not used by default)
 
-**Usage:**
+**Current Setup:**
+- Runners use official `ghcr.io/actions/actions-runner:latest` image
+- Workflows specify their own containers with required dependencies
+- No separate GPU image needed (workflows use GPU containers)
+
+**Usage (optional):**
 ```bash
-just docker-build runner-gpu
-just docker-push <registry>/runner-gpu:latest
+# Only if you need a custom runner image
+just docker-build runner-base
+just deploy-images staging  # Builds and pushes to ECR
 ```
 
 ### Helm (`helm/`)

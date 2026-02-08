@@ -29,11 +29,50 @@ This project deploys and manages GitHub Actions Runner Controller (ARC) on AWS E
 ### Key Components
 
 - **Terraform**: Infrastructure as Code for AWS resources (EKS, VPC, IAM, etc.)
-- **Docker**: Custom runner images with PyTorch toolchain and GPU support
-- **Kubernetes**: Runner deployments and GPU device plugins (NVIDIA)
+- **Docker**: Lightweight runner image (workflows specify their own containers)
+- **Kubernetes**: Runner deployments, GPU device plugins (NVIDIA), and job containers
 - **Helm**: External dependencies (ARC controller)
 - **Scripts**: Bootstrap and configuration scripts for nodes
 - **AMI**: Custom EC2 images for EKS nodes
+
+### Runner Architecture
+
+pytorch-cloud uses **Kubernetes mode** for ARC runners. This means:
+
+- **Lightweight runner pods**: Contain only the GitHub Actions runner binary and basic tools (~500MB)
+- **Workflow containers**: All builds must use the `container:` tag to specify their build environment
+- **Dynamic GPU allocation**: GPU resources are allocated to workflow containers, not runner pods
+- **Better isolation**: Each job runs in its own pod with proper resource limits
+- **Flexibility**: Users choose exact CUDA version, PyTorch version, dependencies, etc.
+
+#### Workflow Requirements
+
+All workflows using these runners **MUST** specify a `container:` in their job definition:
+
+```yaml
+jobs:
+  build:
+    runs-on: pytorch-cpu-small
+    container:
+      image: python:3.11
+    steps:
+      - uses: actions/checkout@v4
+      - run: python setup.py build
+```
+
+For GPU workflows:
+
+```yaml
+jobs:
+  gpu-test:
+    runs-on: pytorch-gpu-t4
+    container:
+      image: pytorch/pytorch:2.5.0-cuda12.4-cudnn9-devel
+      options: --gpus all
+    steps:
+      - run: nvidia-smi
+      - run: python test_gpu.py
+```
 
 ## Architecture
 
@@ -46,8 +85,7 @@ pytorch-cloud/
 │   ├── base/         # Base manifests (kustomize)
 │   └── overlays/     # Environment-specific overlays
 ├── docker/           # Cloud-agnostic: Container images
-│   ├── runner-base/  # Base runner image
-│   └── runner-gpu/   # GPU-enabled runner image
+│   └── runner-base/  # Lightweight runner image (CPU and GPU)
 ├── helm/             # Cloud-agnostic: Helm values for external charts
 │   ├── arc/          # ARC controller values
 │   └── arc-runners/  # ARC runner values
@@ -137,9 +175,9 @@ just helm-install-arc staging
 just helm-install-runners staging
 just helm-install-gpu-runners staging
 
-# Build and push custom images
-just docker-build runner-gpu
-just docker-push <ecr-registry>/runner-gpu:latest
+# Build and push lightweight runner image (optional - uses default if not specified)
+# Single image used for both CPU and GPU runners
+# Workflows specify their own GPU-enabled containers
 ```
 
 ### Automatic Dependency Setup
@@ -203,9 +241,10 @@ just helm-install-gpu-runners staging  # Install GPU runner scale set
 
 ### Docker
 ```bash
-just docker-build runner-gpu           # Build GPU runner image
-just docker-build-all                  # Build all images
-just docker-push <registry>/runner-gpu:latest  # Push image to registry
+# Lightweight runner image (single image for CPU and GPU)
+# Workflows specify their own containers with required dependencies
+just docker-build runner-base         # Build lightweight runner image
+# Note: No separate GPU image needed - workflows use GPU containers
 ```
 
 ### Validation & Linting

@@ -39,4 +39,4 @@ template:
               resources:
                 requests:
                   storage: 30Gi
-              storageClassName: gp2
+              storageClassName: gp3

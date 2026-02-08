@@ -1,5 +1,6 @@
 # Karpenter NodePool: T4 GPU Runners
 # Provisions g4dn instances with NVIDIA T4 GPUs
+# Note: Runner pods are lightweight - workflow CONTAINERS get GPU allocation via Kubernetes mode
 
 apiVersion: karpenter.sh/v1
 kind: NodePool

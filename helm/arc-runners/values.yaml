@@ -20,11 +20,11 @@ maxRunners: 10
 # Runner group (optional, for enterprise)
 runnerGroup: "default"
 
-# Container mode - use dind (docker-in-docker) for Docker support
+# Container mode - use kubernetes (workflows specify container:)
 containerMode:
-  type: "dind"
-  ## To use kubernetes mode instead:
-  # type: "kubernetes"
+  type: "kubernetes"
+  ## For docker-in-docker mode (deprecated):
+  # type: "dind"
 
 # Runner image - default or custom
 # Override in environment-specific values to use custom ECR images
@@ -64,8 +64,8 @@ template:
               resources:
                 requests:
                   storage: 50Gi
-              # Use gp2 by default (gp3 requires StorageClass creation)
-              storageClassName: gp2
+              # Use gp3 (created by kubernetes/base/storageclass-gp3.yaml)
+              storageClassName: gp3
 
 # Controller service account
 controllerServiceAccount:

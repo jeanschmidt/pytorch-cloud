@@ -8,13 +8,11 @@ on:
   workflow_dispatch:
     inputs:
       image:
-        description: 'Image to build'
-        required: true
+        description: 'Image to build (only runner-base exists - using ghcr.io official image)'
+        required: false
         type: choice
         options:
           - runner-base
-          - runner-gpu
-          - all
 
 jobs:
   build-push:
@@ -25,7 +23,7 @@ jobs:
       id-token: write
     strategy:
       matrix:
-        image: ${{ github.event_name == 'workflow_dispatch' && (inputs.image == 'all' && fromJSON('["runner-base", "runner-gpu"]') || fromJSON(format('["{0}"]', inputs.image))) || fromJSON('["runner-base", "runner-gpu"]') }}
+        image: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.image)) || fromJSON('["runner-base"]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -8,7 +8,7 @@ maxRunners: 50
 runnerGroup: "default"
 
 containerMode:
-  type: "dind"
+  type: "kubernetes"
 
 controllerServiceAccount:
   namespace: arc-systems
@@ -33,6 +33,8 @@ listenerTemplate:
 
 template:
   spec:
+    serviceAccountName: arc-runner
+    
     nodeSelector:
       nvidia.com/gpu: "true"
       nvidia.com/gpu.product: "T4"
@@ -49,17 +51,11 @@ template:
         env:
           - name: RUNNER_FEATURE_FLAG_EPHEMERAL
             value: "true"
-          - name: NVIDIA_VISIBLE_DEVICES
-            value: "all"
-          - name: NVIDIA_DRIVER_CAPABILITIES
-            value: "compute,utility"
         resources:
           limits:
-            nvidia.com/gpu: 1
             cpu: "8"
             memory: "32Gi"
           requests:
-            nvidia.com/gpu: 1
             cpu: "4"
             memory: "16Gi"
         volumeMounts:

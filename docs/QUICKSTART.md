@@ -122,15 +122,15 @@ kubectl get runnersets -n arc-runners
 ## Building Custom Images
 
 ```bash
-# Build runner images
-just docker-build runner-base
-just docker-build runner-gpu
+# Build lightweight runner image (optional - default image works too)
+# Single image used for both CPU and GPU runners
+# Workflows specify their own containers with required dependencies
 
-# Tag and push to ECR
-aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-west-2.amazonaws.com
-
-docker tag runner-gpu:latest <account-id>.dkr.ecr.us-west-2.amazonaws.com/pytorch-cloud/runner-gpu:latest
-docker push <account-id>.dkr.ecr.us-west-2.amazonaws.com/pytorch-cloud/runner-gpu:latest
+# If you want to use a custom runner image:
+# just docker-build runner-base
+# aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-west-2.amazonaws.com
+# docker tag runner-base:latest <account-id>.dkr.ecr.us-west-2.amazonaws.com/pytorch-cloud/runner-base:latest
+# docker push <account-id>.dkr.ecr.us-west-2.amazonaws.com/pytorch-cloud/runner-base:latest
 ```
 
 ## Building Custom AMIs
@@ -181,7 +181,26 @@ kubectl describe runners -n arc-runners
 
 ## Using Runners in GitHub Actions
 
-In your workflow file:
+**IMPORTANT**: All workflows **MUST** specify a `container:` tag with their required build environment.
+
+CPU workflow example:
+
+```yaml
+name: CI Build
+
+on: [push]
+
+jobs:
+  test-cpu:
+    runs-on: pytorch-cpu-small  # Or c.pytorch-cpu-small for staging
+    container:
+      image: python:3.11
+    steps:
+      - uses: actions/checkout@v4
+      - run: python setup.py build
+```
+
+GPU workflow example:
 
 ```yaml
 name: CI with GPU
@@ -190,7 +209,10 @@ on: [push]
 
 jobs:
   test-gpu:
-    runs-on: [self-hosted, linux, x64, staging, gpu]
+    runs-on: pytorch-gpu-t4  # Or c.pytorch-gpu-t4 for staging
+    container:
+      image: pytorch/pytorch:2.5.0-cuda12.4-cudnn9-runtime
+      options: --gpus all
     steps:
       - uses: actions/checkout@v4
       - name: Check GPU

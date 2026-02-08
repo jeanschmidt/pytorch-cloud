@@ -10,8 +10,8 @@ This document provides guidelines for AI assistants working on this codebase.
 This is a CI infrastructure project that provides GitHub Actions self-hosted runners on AWS using Kubernetes (EKS). The project manages:
 
 - **Terraform**: Infrastructure as code for AWS resources (EKS, VPC, IAM, etc.)
-- **Kubernetes**: GPU device plugins and runner deployments
-- **Docker**: Custom runner images with GPU support
+- **Kubernetes**: GPU device plugins, runner deployments, and job containers (Kubernetes mode)
+- **Docker**: Lightweight runner image (workflows specify their own containers)
 - **Helm**: Values for ARC (Actions Runner Controller) installation
 - **Bash Scripts**: Node bootstrap and runner lifecycle hooks
 - **AMI Building**: Packer templates for custom EKS node images
@@ -29,8 +29,7 @@ pytorch-cloud/
 │   ├── base/         # Base manifests (kustomize)
 │   └── overlays/     # Environment overlays
 ├── docker/           # Cloud-agnostic: Container images
-│   ├── runner-base/  # Base runner image
-│   └── runner-gpu/   # GPU-enabled runner
+│   └── runner-base/  # Lightweight runner (CPU and GPU)
 ├── helm/             # Cloud-agnostic: Helm values
 │   ├── arc/          # ARC controller values
 │   └── arc-runners/  # ARC runner values
@@ -57,8 +56,8 @@ This project uses **just** + **mise** for build coordination:
 ```bash
 just setup            # Install dependencies (includes tofu)
 just tf-plan staging  # Plan changes (uses tofu internally)
-just docker-build runner-gpu  # Build Docker images
-just k8s-apply staging        # Apply Kubernetes manifests
+just docker-build runner-base  # Build lightweight runner image
+just k8s-apply staging         # Apply Kubernetes manifests
 ```
 
 **NEVER run `terraform` commands!** Use `tofu` or `just` commands only.
@@ -120,7 +119,7 @@ See [CRITICAL-USE-TOFU.md](../CRITICAL-USE-TOFU.md) for full details.
 ✅ Do: `tofu plan` or `just tf-plan staging`
 
 ❌ Don't: `docker build`
-✅ Do: `just docker-build runner-gpu`
+✅ Do: `just docker-build runner-base`
 
 **Note**: Commands that start with `tf-` in justfile use `tofu` internally, not terraform.
 

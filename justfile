@@ -219,8 +219,10 @@ deploy env: _auto-setup
     echo "This will:"
     echo "  1. Deploy infrastructure (VPC, EKS, base nodes)"
     echo "  2. Deploy control plane (Karpenter, ARC controller)"
-    echo "  3. Build and push Docker images"
-    echo "  4. Deploy runners (all YAML files in runners/)"
+    echo "  3. Deploy runners (using official ghcr.io/actions/actions-runner:latest)"
+    echo ""
+    echo "Note: Custom runner image build skipped (using official image)"
+    echo "      To build custom image, run: just deploy-images {{env}}"
     echo ""
     read -p "Continue? [y/N] " -n 1 -r
     echo
@@ -231,7 +233,7 @@ deploy env: _auto-setup
     echo ""
     just deploy-infra {{env}}
     just deploy-control-plane {{env}}
-    just deploy-images {{env}}
+    # Skip deploy-images - using official ghcr.io image (add back if custom image needed)
     just deploy-runners {{env}}
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -354,18 +356,16 @@ deploy-images env: _auto-setup
         docker login --username AWS --password-stdin "${ECR_REGISTRY}"
     echo ""
     
-    # Create ECR repositories if they don't exist
-    for repo in runner-base runner-gpu; do
-        echo "Ensuring ECR repository exists: ${REPO_PREFIX}/${repo}..."
-        aws ecr describe-repositories \
-            --repository-names "${REPO_PREFIX}/${repo}" \
-            --region "${AWS_REGION}" 2>/dev/null || \
-        aws ecr create-repository \
-            --repository-name "${REPO_PREFIX}/${repo}" \
-            --region "${AWS_REGION}" \
-            --image-scanning-configuration scanOnPush=true \
-            --output text > /dev/null
-    done
+    # Create ECR repository if it doesn't exist
+    echo "Ensuring ECR repository exists: ${REPO_PREFIX}/runner-base..."
+    aws ecr describe-repositories \
+        --repository-names "${REPO_PREFIX}/runner-base" \
+        --region "${AWS_REGION}" 2>/dev/null || \
+    aws ecr create-repository \
+        --repository-name "${REPO_PREFIX}/runner-base" \
+        --region "${AWS_REGION}" \
+        --image-scanning-configuration scanOnPush=true \
+        --output text > /dev/null
     echo ""
     
     # Set up buildx for multi-platform builds (if not already set up)
@@ -374,7 +374,8 @@ deploy-images env: _auto-setup
     docker buildx use pytorch-builder
     echo ""
     
-    # Build multi-platform images for linux/amd64 (EKS nodes are amd64)
+    # Build multi-platform image for linux/amd64 (EKS nodes are amd64)
+    # Single lightweight image for Kubernetes mode (no separate GPU image needed)
     echo "Building runner-base for linux/amd64..."
     docker buildx build \
         --platform linux/amd64 \
@@ -385,23 +386,14 @@ deploy-images env: _auto-setup
         docker/runner-base/
     echo ""
     
-    echo "Building runner-gpu for linux/amd64..."
-    docker buildx build \
-        --platform linux/amd64 \
-        -t "${ECR_REGISTRY}/${REPO_PREFIX}/runner-gpu:latest" \
-        -t "${ECR_REGISTRY}/${REPO_PREFIX}/runner-gpu:{{env}}" \
-        -f docker/runner-gpu/Dockerfile \
-        --push \
-        docker/runner-gpu/
+    echo "✅ Docker image built and pushed to ECR"
     echo ""
-    
-    echo "✅ Docker images built and pushed to ECR"
-    echo ""
-    echo "Images available at:"
+    echo "Image available at:"
     echo "  - ${ECR_REGISTRY}/${REPO_PREFIX}/runner-base:latest"
     echo "  - ${ECR_REGISTRY}/${REPO_PREFIX}/runner-base:{{env}}"
-    echo "  - ${ECR_REGISTRY}/${REPO_PREFIX}/runner-gpu:latest"
-    echo "  - ${ECR_REGISTRY}/${REPO_PREFIX}/runner-gpu:{{env}}"
+    echo ""
+    echo "Note: This lightweight image is used for both CPU and GPU runners."
+    echo "GPU workflows should specify GPU-enabled container images in their workflow files."
 
 # Deploy runners via Helm (ARC requires Helm, not kubectl apply)
 deploy-runners env: _auto-setup

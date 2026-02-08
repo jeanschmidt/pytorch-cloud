@@ -72,21 +72,20 @@ aws dynamodb create-table \
   --region us-west-2
 ```
 
-### 4. Create ECR Repositories
+### 4. Create ECR Repository (Optional)
+
+**Note:** Runners use `ghcr.io/actions/actions-runner:latest` by default. Only create ECR repo if using custom image.
 
 ```bash
-# Create ECR repositories for runner images
+# Optional: Create ECR repository for custom runner image
 aws ecr create-repository \
   --repository-name pytorch-cloud/runner-base \
-  --region us-west-2
+  --region us-west-2 \
+  --image-scanning-configuration scanOnPush=true
 
-aws ecr create-repository \
-  --repository-name pytorch-cloud/runner-gpu \
-  --region us-west-2
-
-# Get repository URLs
+# Get repository URL
 aws ecr describe-repositories \
-  --repository-names pytorch-cloud/runner-base pytorch-cloud/runner-gpu \
+  --repository-names pytorch-cloud/runner-base \
   --region us-west-2 \
   --query 'repositories[*].repositoryUri' \
   --output table
@@ -144,7 +143,22 @@ kubectl logs -n kube-system -l name=nvidia-device-plugin-ds
 kubectl get namespaces arc-systems arc-runners
 ```
 
-### 7. Build and Push Docker Images
+### 7. Docker Images (Optional - Using Official Image)
+
+**Note:** Runners use `ghcr.io/actions/actions-runner:latest` by default. This step is optional.
+
+Workflows specify their own container images with required dependencies:
+
+```yaml
+# In your workflow
+jobs:
+  build:
+    runs-on: pytorch-cpu-small
+    container:
+      image: python:3.11  # User-specified build environment
+```
+
+**If you want a custom runner image:**
 
 ```bash
 # Login to ECR
@@ -152,17 +166,8 @@ aws ecr get-login-password --region us-west-2 | \
   docker login --username AWS --password-stdin \
   <account-id>.dkr.ecr.us-west-2.amazonaws.com
 
-# Build images
-just docker-build runner-base
-just docker-build runner-gpu
-
-# Tag images
-docker tag runner-base:latest <account-id>.dkr.ecr.us-west-2.amazonaws.com/pytorch-cloud/runner-base:latest
-docker tag runner-gpu:latest <account-id>.dkr.ecr.us-west-2.amazonaws.com/pytorch-cloud/runner-gpu:latest
-
-# Push images
-docker push <account-id>.dkr.ecr.us-west-2.amazonaws.com/pytorch-cloud/runner-base:latest
-docker push <account-id>.dkr.ecr.us-west-2.amazonaws.com/pytorch-cloud/runner-gpu:latest
+# Build and push
+just deploy-images staging
 ```
 
 ### 8. Install ARC Controller
