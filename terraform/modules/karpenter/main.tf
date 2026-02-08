@@ -101,7 +101,8 @@ resource "aws_iam_policy" "karpenter_controller" {
           "arn:aws:ec2:${var.aws_region}:*:instance/*",
           "arn:aws:ec2:${var.aws_region}:*:volume/*",
           "arn:aws:ec2:${var.aws_region}:*:network-interface/*",
-          "arn:aws:ec2:${var.aws_region}:*:launch-template/*"
+          "arn:aws:ec2:${var.aws_region}:*:launch-template/*",
+          "arn:aws:ec2:${var.aws_region}:*:spot-instances-request/*"
         ]
         Condition = {
           StringEquals = {

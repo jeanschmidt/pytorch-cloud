@@ -3,7 +3,7 @@
 This document provides guidelines for AI assistants working on this codebase.
 
 ## ⚠️ AWS Region Check
-**Before any AWS CLI commands**: Verify correct region first. Region differs by environment (staging/production). Check with `aws configure get region` or review environment config.
+**Before any AWS CLI commands**: Check region in `terraform/environments/{env}/variables.tf` (aws_region variable), NOT your local AWS CLI config. Your CLI region may differ from infrastructure.
 
 ## Project Overview
 
