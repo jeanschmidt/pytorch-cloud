@@ -6,6 +6,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -228,6 +232,9 @@ resource "aws_eks_node_group" "base" {
     max_unavailable_percentage = var.base_node_max_unavailable_percentage
   }
 
+  # Force immediate update without waiting for nodes to be ready
+  force_update_version = true
+
   instance_types = [var.base_node_instance_type]
   capacity_type  = "ON_DEMAND"
 
@@ -277,6 +284,64 @@ resource "aws_eks_node_group" "base" {
     aws_iam_role_policy_attachment.node_policy,
     aws_iam_role_policy_attachment.cni_policy,
     aws_iam_role_policy_attachment.ecr_policy,
+  ]
+}
+
+# AGGRESSIVE FORCE REPLACEMENT: When launch template changes, forcefully terminate all instances
+# This bypasses EKS node group's safe rollout and forces immediate instance replacement
+resource "null_resource" "force_base_node_refresh" {
+  # Trigger whenever launch template version changes
+  triggers = {
+    launch_template_version = aws_launch_template.base.latest_version
+  }
+
+  # Force terminate all instances in the ASG immediately
+  provisioner "local-exec" {
+    command = <<-EOT
+      set -e
+      echo "🔥 FORCE REFRESH: Launch template changed, aggressively terminating all base nodes"
+      
+      # Get the Auto Scaling Group name for the node group
+      ASG_NAME=$(aws autoscaling describe-auto-scaling-groups \
+        --region ${var.aws_region} \
+        --query "AutoScalingGroups[?Tags[?Key=='eks:nodegroup-name' && Value=='${var.cluster_name}-base-nodes']].AutoScalingGroupName" \
+        --output text)
+      
+      if [ -z "$ASG_NAME" ]; then
+        echo "⚠️  ASG not found yet (node group may be creating)"
+        exit 0
+      fi
+      
+      echo "📍 Found ASG: $ASG_NAME"
+      
+      # Get all instance IDs in the ASG
+      INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
+        --region ${var.aws_region} \
+        --auto-scaling-group-names "$ASG_NAME" \
+        --query "AutoScalingGroups[0].Instances[].InstanceId" \
+        --output text)
+      
+      if [ -z "$INSTANCE_IDS" ]; then
+        echo "✅ No instances to terminate"
+        exit 0
+      fi
+      
+      echo "💀 Forcefully terminating instances: $INSTANCE_IDS"
+      
+      # Terminate all instances immediately (no graceful shutdown)
+      for INSTANCE_ID in $INSTANCE_IDS; do
+        echo "  Terminating $INSTANCE_ID..."
+        aws ec2 terminate-instances \
+          --region ${var.aws_region} \
+          --instance-ids "$INSTANCE_ID" || true
+      done
+      
+      echo "✅ Force refresh complete - new instances will launch automatically"
+    EOT
+  }
+
+  depends_on = [
+    aws_eks_node_group.base
   ]
 }
 

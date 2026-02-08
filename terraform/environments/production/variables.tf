@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "base_node_count" {
   description = "Number of base infrastructure nodes"
   type        = number
-  default     = 3 # HA for production
+  default     = 5
 }
 
 variable "base_node_instance_type" {

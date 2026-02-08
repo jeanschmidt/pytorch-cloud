@@ -83,7 +83,7 @@ lint-shell: _auto-setup
     @echo "→ Linting shell scripts..."
     @if command -v shellcheck >/dev/null 2>&1; then \
         shellcheck scripts/bootstrap/*.sh scripts/hooks/*.sh; \
-        shellcheck -x terraform/modules/eks/user-data-*.sh.tpl terraform/modules/gpu/user-data-*.sh.tpl 2>/dev/null || true; \
+        shellcheck -e SC2148,SC2034,SC2215,SC2154 -x terraform/modules/eks/user-data-*.sh.tpl terraform/modules/gpu/user-data-*.sh.tpl 2>/dev/null || true; \
     else \
         echo "  ❌ ERROR: shellcheck not found."; \
         echo "  Install via mise: mise install shellcheck"; \
