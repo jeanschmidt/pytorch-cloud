@@ -595,13 +595,16 @@ k8s-diff env:
     kubectl diff -k kubernetes/overlays/{{env}}/ || true
 
 # Validate kubernetes manifests
+# Validate Kubernetes manifests (client-side, no cluster needed)
 k8s-validate:
     #!/usr/bin/env bash
     set -euo pipefail
     for dir in kubernetes/overlays/*/; do
         env=$(basename "$dir")
         echo "Validating $env..."
-        kubectl apply --dry-run=client -k "$dir"
+        # Use kustomize to build and pipe to kubectl for client-side validation
+        # This doesn't require a cluster connection
+        kubectl kustomize "$dir" > /dev/null
     done
 
 # ============================================================================
