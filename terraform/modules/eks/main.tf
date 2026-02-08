@@ -140,7 +140,7 @@ resource "aws_eks_addon" "coredns" {
 resource "aws_eks_addon" "kube_proxy" {
   cluster_name                = aws_eks_cluster.this.name
   addon_name                  = "kube-proxy"
-  addon_version               = "v1.29.15-eksbuild.28"
+  addon_version               = "v1.35.0-eksbuild.2"
   resolve_conflicts_on_update = "PRESERVE"
 
   tags = var.tags
