@@ -14,8 +14,8 @@ echo "Amazon Linux 2023 detected"
 # AL2023 uses containerd by default (not Docker)
 # Configure containerd if needed
 if systemctl is-active --quiet containerd; then
-    echo "Containerd is running"
-    # Add any containerd-specific configuration here if needed
+	echo "Containerd is running"
+	# Add any containerd-specific configuration here if needed
 fi
 
 # Install useful tools (AL2023 uses dnf)

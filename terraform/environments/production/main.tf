@@ -87,11 +87,11 @@ module "eks" {
 module "karpenter" {
   source = "../../modules/karpenter"
 
-  cluster_name            = local.cluster_name
-  aws_region              = var.aws_region
-  oidc_provider_arn       = module.eks.oidc_provider_arn
-  oidc_provider           = module.eks.oidc_provider
-  node_instance_role_arn  = module.eks.node_instance_role_arn
+  cluster_name           = local.cluster_name
+  aws_region             = var.aws_region
+  oidc_provider_arn      = module.eks.oidc_provider_arn
+  oidc_provider          = module.eks.oidc_provider
+  node_instance_role_arn = module.eks.node_instance_role_arn
 
   tags = local.tags
 }

@@ -146,6 +146,66 @@ resource "aws_eks_addon" "kube_proxy" {
   tags = var.tags
 }
 
+# EBS CSI Driver IAM Role (IRSA)
+data "aws_iam_policy_document" "ebs_csi_assume_role" {
+  count = var.enable_irsa ? 1 : 0
+
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    effect  = "Allow"
+
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.cluster[0].arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")}:sub"
+      values   = ["system:serviceaccount:kube-system:ebs-csi-controller-sa"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "ebs_csi_driver" {
+  count = var.enable_irsa ? 1 : 0
+
+  name               = "${var.cluster_name}-ebs-csi-driver-role"
+  assume_role_policy = data.aws_iam_policy_document.ebs_csi_assume_role[0].json
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "ebs_csi_driver" {
+  count = var.enable_irsa ? 1 : 0
+
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+  role       = aws_iam_role.ebs_csi_driver[0].name
+}
+
+resource "aws_eks_addon" "ebs_csi_driver" {
+  cluster_name                = aws_eks_cluster.this.name
+  addon_name                  = "aws-ebs-csi-driver"
+  # Omit addon_version to use AWS-recommended default version
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "PRESERVE"
+
+  service_account_role_arn = var.enable_irsa ? aws_iam_role.ebs_csi_driver[0].arn : null
+
+  tags = var.tags
+
+  depends_on = [
+    aws_eks_node_group.base,
+    aws_iam_role_policy_attachment.ebs_csi_driver,
+  ]
+}
+
 # Base Infrastructure Node Group (Fixed Size)
 # These nodes run critical cluster components only (ARC, Karpenter, CoreDNS, etc.)
 # Tainted to prevent runner workloads from scheduling here

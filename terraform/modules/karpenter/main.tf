@@ -92,9 +92,9 @@ resource "aws_iam_policy" "karpenter_controller" {
         }
       },
       {
-        Sid      = "AllowScopedResourceCreationTagging"
-        Effect   = "Allow"
-        Action   = "ec2:CreateTags"
+        Sid    = "AllowScopedResourceCreationTagging"
+        Effect = "Allow"
+        Action = "ec2:CreateTags"
         Resource = [
           "arn:aws:ec2:${var.aws_region}:*:fleet/*",
           "arn:aws:ec2:${var.aws_region}:*:instance/*",
@@ -114,9 +114,9 @@ resource "aws_iam_policy" "karpenter_controller" {
         }
       },
       {
-        Sid    = "AllowScopedResourceTagging"
-        Effect = "Allow"
-        Action = "ec2:CreateTags"
+        Sid      = "AllowScopedResourceTagging"
+        Effect   = "Allow"
+        Action   = "ec2:CreateTags"
         Resource = "arn:aws:ec2:${var.aws_region}:*:instance/*"
         Condition = {
           StringEquals = {
@@ -128,9 +128,9 @@ resource "aws_iam_policy" "karpenter_controller" {
         }
       },
       {
-        Sid      = "AllowScopedDeletion"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "AllowScopedDeletion"
+        Effect = "Allow"
+        Action = [
           "ec2:TerminateInstances",
           "ec2:DeleteLaunchTemplate"
         ]
@@ -166,9 +166,9 @@ resource "aws_iam_policy" "karpenter_controller" {
         }
       },
       {
-        Sid    = "AllowSSMReadActions"
-        Effect = "Allow"
-        Action = "ssm:GetParameter"
+        Sid      = "AllowSSMReadActions"
+        Effect   = "Allow"
+        Action   = "ssm:GetParameter"
         Resource = "arn:aws:ssm:${var.aws_region}::parameter/aws/service/*"
       },
       {
@@ -189,9 +189,9 @@ resource "aws_iam_policy" "karpenter_controller" {
         Resource = aws_sqs_queue.karpenter.arn
       },
       {
-        Sid    = "AllowPassingInstanceRole"
-        Effect = "Allow"
-        Action = "iam:PassRole"
+        Sid      = "AllowPassingInstanceRole"
+        Effect   = "Allow"
+        Action   = "iam:PassRole"
         Resource = var.node_instance_role_arn
         Condition = {
           StringEquals = {
@@ -262,9 +262,9 @@ resource "aws_iam_policy" "karpenter_controller" {
         Resource = "*"
       },
       {
-        Sid    = "AllowAPIServerEndpointDiscovery"
-        Effect = "Allow"
-        Action = "eks:DescribeCluster"
+        Sid      = "AllowAPIServerEndpointDiscovery"
+        Effect   = "Allow"
+        Action   = "eks:DescribeCluster"
         Resource = "arn:aws:eks:${var.aws_region}:*:cluster/${var.cluster_name}"
       }
     ]

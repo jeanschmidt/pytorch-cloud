@@ -14,9 +14,9 @@ echo "Amazon Linux 2023 detected"
 # AL2023 uses containerd with nvidia-container-runtime
 # Configure containerd for NVIDIA runtime
 if systemctl is-active --quiet containerd; then
-    echo "Configuring containerd for NVIDIA runtime..."
-    # The nvidia-container-runtime is pre-installed in AL2023 EKS GPU AMIs
-    # Containerd is already configured to use it via /etc/containerd/config.toml
+	echo "Configuring containerd for NVIDIA runtime..."
+	# The nvidia-container-runtime is pre-installed in AL2023 EKS GPU AMIs
+	# Containerd is already configured to use it via /etc/containerd/config.toml
 fi
 
 # Install useful tools (AL2023 uses dnf)
