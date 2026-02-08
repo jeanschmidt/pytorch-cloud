@@ -7,7 +7,7 @@
 
 [tools]
 python = "3.12"
-terraform = "1.7"  # This installs OpenTofu, despite the name
+opentofu = "1.7"  # OpenTofu - the open-source Terraform fork
 kubectl = "1.29"
 helm = "3.14"
 awscli = "2"
@@ -19,10 +19,6 @@ shfmt = "latest"
 hadolint = "latest"
 # Python tools
 uv = "latest"
-
-# Note: mise uses "terraform" as the tool name, but it installs OpenTofu (tofu) binary
-# The actual command you should use is "tofu", not "terraform"
-# Additional linting tools installed via pip/npm are managed in justfile
 
 [env]
 # Project-specific environment variables

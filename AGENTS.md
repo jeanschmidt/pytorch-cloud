@@ -96,11 +96,35 @@ just tf-plan staging
 just tf-apply staging
 ```
 
+**⚠️ CONFIGURATION FILES - CRITICAL:**
+
+When editing configuration files, ensure they install **OpenTofu**, not Terraform:
+
+**❌ WRONG - mise.toml:**
+```toml
+[tools]
+terraform = "1.7"  # This installs terraform binary, NOT tofu!
+```
+
+**✅ CORRECT - mise.toml:**
+```toml
+[tools]
+opentofu = "1.7"  # This installs the tofu binary
+```
+
+**BEFORE making changes to these files, verify the tool being installed:**
+- `mise.toml` - Use `opentofu = "version"`, NOT `terraform`
+- `requirements.txt` / `pyproject.toml` - Use `opentofu`, NOT `terraform` 
+- `package.json` - Use `opentofu` packages, NOT `terraform`
+- Dockerfiles - Install `tofu`, NOT `terraform`
+- CI workflows - Install `opentofu`, NOT `terraform`
+
 **WHY THIS IS CRITICAL:**
 - Running `terraform` will **corrupt the state file**
 - State file corruption can destroy infrastructure
 - Mixing terraform and tofu commands causes deployment failures
 - Recovery from state corruption is difficult/impossible
+- **Installing terraform instead of tofu makes the wrong tool available**
 
 **If you accidentally run terraform:**
 1. STOP immediately
@@ -110,8 +134,11 @@ just tf-apply staging
 
 **For AI Assistants:**
 - NEVER suggest or run `terraform` commands
-- ALWAYS use `tofu` or `just` commands
+- NEVER configure tools to install `terraform` 
+- ALWAYS use `opentofu` in configuration files
+- ALWAYS use `tofu` or `just` commands for operations
 - ALWAYS warn users if they mention terraform
+- **CHECK mise.toml, package files, and CI configs for terraform references**
 - This rule overrides all other rules
 
 See [CRITICAL-USE-TOFU.md](../CRITICAL-USE-TOFU.md) for full details.

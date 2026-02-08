@@ -10,11 +10,13 @@
 ### What You MUST Do:
 
 1. **NEVER run or suggest `terraform` commands**
-2. **ALWAYS use `tofu` commands** or `just` commands
-3. **ALWAYS warn users** if they mention terraform
-4. **NEVER use terraform** even if explicitly asked
+2. **NEVER configure tools to install `terraform`**
+3. **ALWAYS use `opentofu` in configuration files**
+4. **ALWAYS use `tofu` commands** or `just` commands
+5. **ALWAYS warn users** if they mention terraform
+6. **NEVER use terraform** even if explicitly asked
 
-### Examples:
+### Examples - Commands:
 
 **❌ NEVER DO THIS:**
 ```bash
@@ -35,9 +37,31 @@ just tf-plan staging
 just tf-apply staging
 ```
 
+### Examples - Configuration Files:
+
+**❌ WRONG - mise.toml:**
+```toml
+[tools]
+terraform = "1.7"  # Installs terraform, NOT tofu!
+```
+
+**✅ CORRECT - mise.toml:**
+```toml
+[tools]
+opentofu = "1.7"  # Installs tofu binary
+```
+
+**Configuration files to check:**
+- `mise.toml` → Use `opentofu`, NOT `terraform`
+- `requirements.txt` → Use `opentofu`, NOT `terraform`
+- `package.json` → Use `opentofu` packages, NOT `terraform`
+- `.github/workflows/*.yaml` → Install `opentofu`, NOT `terraform`
+- `Dockerfile` → Install `tofu`, NOT `terraform`
+
 ### Why This Matters:
 
 - **State File Corruption**: Mixing terraform and tofu will corrupt the infrastructure state
+- **Wrong Tool Available**: Installing terraform makes the wrong command available
 - **Data Loss Risk**: Corrupted state can lead to infrastructure destruction
 - **No Recovery**: State corruption is very difficult to fix
 
@@ -139,3 +163,20 @@ just helm-install-gpu-runners staging
 ---
 
 **Most Important**: This project uses OpenTofu. Using terraform will break things!
+
+## Verification Checklist for AI Assistants
+
+Before making changes or suggesting commands, verify:
+
+- [ ] **Commands**: Am I suggesting `tofu` or `just tf-*`, NOT `terraform`?
+- [ ] **Configuration**: If editing mise.toml, am I using `opentofu`, NOT `terraform`?
+- [ ] **CI/CD**: If editing workflows, am I installing `opentofu`, NOT `terraform`?
+- [ ] **Dependencies**: If editing package files, am I using `opentofu` packages?
+- [ ] **Code**: Are all shell commands using `tofu`, NOT `terraform`?
+
+**Red flags that should trigger re-checking:**
+- User mentions "terraform" anywhere
+- Editing `mise.toml` or other dependency files
+- Creating CI/CD workflows
+- Installing tools or dependencies
+- Error messages mentioning "command not found: tofu"
