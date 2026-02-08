@@ -46,7 +46,7 @@ variable "cluster_endpoint_public_access_cidrs" {
 variable "base_node_count" {
   description = "Fixed number of base infrastructure nodes"
   type        = number
-  default     = 10
+  default     = 5
 }
 
 variable "base_node_instance_type" {
