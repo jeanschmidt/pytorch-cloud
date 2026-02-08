@@ -5,6 +5,9 @@ This guide helps you get started with deploying ARC (Actions Runner Controller) 
 ## ⚠️ AWS Region Check
 **Before any AWS CLI commands**: Check region in `terraform/environments/{env}/variables.tf` (aws_region variable), NOT your local AWS CLI config. Your CLI region may differ from infrastructure.
 
+## 💥 Staging Environment: Break Things Freely
+**Staging/canary**: No need to drain nodes, wait for pods, or avoid disruption. This environment is for testing infrastructure changes. Kill nodes, break workflows, experiment freely - no production workloads here.
+
 ## Prerequisites
 
 1. **Install required tools:**

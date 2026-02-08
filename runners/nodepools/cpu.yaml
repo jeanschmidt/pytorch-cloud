@@ -10,20 +10,20 @@ spec:
   limits:
     cpu: "1000"
     memory: "2000Gi"
-  
+
   # Disruption settings
   disruption:
     consolidationPolicy: WhenEmptyOrUnderutilized
     consolidateAfter: 30s
     budgets:
       - nodes: "10%"  # Only disrupt 10% of nodes at a time
-  
+
   # Template for nodes
   template:
     metadata:
       labels:
         workload-type: github-runner
-    
+
     spec:
       # Node requirements
       requirements:
@@ -51,13 +51,13 @@ spec:
             - c6a.4xlarge
             - c6a.8xlarge
             - c6a.12xlarge
-      
+
       # Reference to EC2NodeClass
       nodeClassRef:
         group: karpenter.k8s.aws
         kind: EC2NodeClass
         name: cpu-runners
-      
+
       # No taints - any pod can schedule here
       taints: []
 
@@ -70,27 +70,27 @@ spec:
   # AMI Selection (Amazon Linux 2023 EKS-optimized)
   amiSelectorTerms:
     - alias: al2023@latest
-  
+
   # Subnet selection (will be tagged by terraform with karpenter.sh/discovery)
   subnetSelectorTerms:
     - tags:
         karpenter.sh/discovery: "${CLUSTER_NAME}"
-  
+
   # Security group selection
   securityGroupSelectorTerms:
     - tags:
         karpenter.sh/discovery: "${CLUSTER_NAME}"
-  
+
   # IAM Instance Profile (created by EKS module)
   role: "${CLUSTER_NAME}-node-role"
-  
+
   # User data (bootstrap script)
   userData: |
     #!/bin/bash
     set -euo pipefail
     # Standard EKS bootstrap (nodeadm handles automatically in AL2023)
     echo "CPU node ready for GitHub Actions runners"
-  
+
   # Block device mappings
   blockDeviceMappings:
     - deviceName: /dev/xvda
@@ -101,14 +101,14 @@ spec:
         throughput: 125
         deleteOnTermination: true
         encrypted: true
-  
+
   # Metadata options (IMDSv2 required)
   metadataOptions:
     httpEndpoint: enabled
     httpProtocolIPv6: disabled
     httpPutResponseHopLimit: 1
     httpTokens: required
-  
+
   # Tags
   tags:
     Name: "pytorch-arc-cpu-runner"

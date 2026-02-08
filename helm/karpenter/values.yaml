@@ -6,8 +6,8 @@ serviceAccount:
   create: true
   name: karpenter
   annotations: {}
-    # eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT:role/cluster-karpenter-controller
-    # Set via --set in justfile from terraform output
+  # eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT:role/cluster-karpenter-controller
+  # Set via --set in justfile from terraform output
 
 # Controller settings
 replicas: 2
@@ -30,12 +30,29 @@ settings:
   featureGates:
     spotToSpotConsolidation: true
 
-# Environment variables
+# Controller configuration
 controller:
+  # Environment variables
   env:
     # Use global STS endpoint instead of regional (more reliable)
     - name: AWS_STS_REGIONAL_ENDPOINTS
       value: "legacy"
+  # Metrics
+  metrics:
+    port: 8000
+  # Health probes (increased timeouts for slow AWS API responses)
+  healthProbe:
+    port: 8081
+  livenessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 30
+    failureThreshold: 3
+  readinessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 30
+    failureThreshold: 3
 
 # CRITICAL: Tolerations to run on base infrastructure nodes
 # The base nodes are tainted with CriticalAddonsOnly=true:NoSchedule
@@ -65,24 +82,3 @@ podDisruptionBudget:
 # Logging
 logLevel: info
 logEncoding: console
-
-# Metrics
-controller:
-  metrics:
-    port: 8000
-
-# Health probes
-controller:
-  healthProbe:
-    port: 8081
-  # Increase timeouts for slow AWS API responses
-  livenessProbe:
-    initialDelaySeconds: 30
-    periodSeconds: 10
-    timeoutSeconds: 30
-    failureThreshold: 3
-  readinessProbe:
-    initialDelaySeconds: 30
-    periodSeconds: 10
-    timeoutSeconds: 30
-    failureThreshold: 3

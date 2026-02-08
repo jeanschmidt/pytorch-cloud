@@ -435,17 +435,11 @@ _deploy-nodepools env:
 _deploy-runner-cpu-small env:
     #!/usr/bin/env bash
     set -euo pipefail
-    cd terraform/environments/{{env}}
-    AWS_REGION=$(tofu output -raw aws_region 2>/dev/null || echo "us-west-2")
-    AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-    cd -
-    ECR_IMAGE="${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/pytorch-cloud/runner-base:{{env}}"
-    echo "  → cpu-small (using ${ECR_IMAGE})"
+    echo "  → cpu-small (using ghcr.io/actions/actions-runner:latest)"
     helm upgrade --install arc-cpu-small \
         --namespace arc-runners \
         --create-namespace \
         -f helm/runners/cpu-small-{{env}}.yaml \
-        --set template.spec.containers[0].image="${ECR_IMAGE}" \
         --set template.spec.securityContext.runAsUser=1000 \
         --set template.spec.securityContext.runAsGroup=1000 \
         --set template.spec.securityContext.fsGroup=1000 \
@@ -457,17 +451,11 @@ _deploy-runner-cpu-small env:
 _deploy-runner-cpu-medium env:
     #!/usr/bin/env bash
     set -euo pipefail
-    cd terraform/environments/{{env}}
-    AWS_REGION=$(tofu output -raw aws_region 2>/dev/null || echo "us-west-2")
-    AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-    cd -
-    ECR_IMAGE="${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/pytorch-cloud/runner-base:{{env}}"
-    echo "  → cpu-medium (using ${ECR_IMAGE})"
+    echo "  → cpu-medium (using ghcr.io/actions/actions-runner:latest)"
     helm upgrade --install arc-cpu-medium \
         --namespace arc-runners \
         --create-namespace \
         -f helm/runners/cpu-medium-{{env}}.yaml \
-        --set template.spec.containers[0].image="${ECR_IMAGE}" \
         --set template.spec.securityContext.runAsUser=1000 \
         --set template.spec.securityContext.runAsGroup=1000 \
         --set template.spec.securityContext.fsGroup=1000 \
@@ -479,17 +467,11 @@ _deploy-runner-cpu-medium env:
 _deploy-runner-cpu-large env:
     #!/usr/bin/env bash
     set -euo pipefail
-    cd terraform/environments/{{env}}
-    AWS_REGION=$(tofu output -raw aws_region 2>/dev/null || echo "us-west-2")
-    AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-    cd -
-    ECR_IMAGE="${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/pytorch-cloud/runner-base:{{env}}"
-    echo "  → cpu-large (using ${ECR_IMAGE})"
+    echo "  → cpu-large (using ghcr.io/actions/actions-runner:latest)"
     helm upgrade --install arc-cpu-large \
         --namespace arc-runners \
         --create-namespace \
         -f helm/runners/cpu-large-{{env}}.yaml \
-        --set template.spec.containers[0].image="${ECR_IMAGE}" \
         --set template.spec.securityContext.runAsUser=1000 \
         --set template.spec.securityContext.runAsGroup=1000 \
         --set template.spec.securityContext.fsGroup=1000 \
@@ -501,17 +483,11 @@ _deploy-runner-cpu-large env:
 _deploy-runner-gpu-t4 env:
     #!/usr/bin/env bash
     set -euo pipefail
-    cd terraform/environments/{{env}}
-    AWS_REGION=$(tofu output -raw aws_region 2>/dev/null || echo "us-west-2")
-    AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-    cd -
-    ECR_IMAGE="${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/pytorch-cloud/runner-gpu:{{env}}"
-    echo "  → gpu-t4 (using ${ECR_IMAGE})"
+    echo "  → gpu-t4 (using ghcr.io/actions/actions-runner:latest)"
     helm upgrade --install arc-gpu-t4 \
         --namespace arc-runners \
         --create-namespace \
         -f helm/runners/gpu-t4-{{env}}.yaml \
-        --set template.spec.containers[0].image="${ECR_IMAGE}" \
         --set template.spec.securityContext.runAsUser=1000 \
         --set template.spec.securityContext.runAsGroup=1000 \
         --set template.spec.securityContext.fsGroup=1000 \

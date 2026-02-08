@@ -1,5 +1,8 @@
 # Migration Complete: Docker-in-Docker → Kubernetes Mode
 
+## 💥 Staging Environment: Break Things Freely
+**Staging/canary**: No need to drain nodes, wait for pods, or avoid disruption. This environment is for testing infrastructure changes. Kill nodes, break workflows, experiment freely - no production workloads here.
+
 ## 🎯 Executive Summary
 
 The pytorch-cloud infrastructure has been successfully migrated from docker-in-docker (dind) mode to Kubernetes mode for GitHub Actions Runner Controller (ARC).

@@ -34,20 +34,19 @@ listenerTemplate:
 template:
   spec:
     serviceAccountName: arc-runner
-    
+
     nodeSelector:
       nvidia.com/gpu: "true"
       nvidia.com/gpu.product: "T4"
-    
+
     tolerations:
       - key: nvidia.com/gpu
         value: "t4"
         effect: NoSchedule
-    
+
     containers:
       - name: runner
         image: ghcr.io/actions/actions-runner:latest
-        command: ["/home/runner/run.sh"]
         env:
           - name: RUNNER_FEATURE_FLAG_EPHEMERAL
             value: "true"
@@ -61,7 +60,7 @@ template:
         volumeMounts:
           - name: work
             mountPath: /home/runner/_work
-    
+
     volumes:
       - name: work
         ephemeral:

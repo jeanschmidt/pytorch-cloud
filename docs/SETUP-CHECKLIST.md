@@ -2,6 +2,9 @@
 
 Use this checklist to deploy pytorch-cloud from scratch.
 
+## 💥 Staging Environment: Break Things Freely
+**Staging/canary**: No need to drain nodes, wait for pods, or avoid disruption. This environment is for testing infrastructure changes. Kill nodes, break workflows, experiment freely - no production workloads here.
+
 ## Prerequisites
 
 - [ ] AWS account with admin access

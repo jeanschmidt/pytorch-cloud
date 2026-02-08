@@ -1,3 +1,6 @@
+# shellcheck shell=bash disable=SC2148,SC2034,SC2215,SC2154
+# This is a MIME multipart cloud-init template for EKS user-data (GPU nodes)
+# Template variables are provided by Terraform and should not be checked by shellcheck
 MIME-Version: 1.0
 Content-Type: multipart/mixed; boundary="==BOUNDARY=="
 

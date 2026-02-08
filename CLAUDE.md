@@ -1,5 +1,8 @@
 # CLAUDE.md - Instructions for Claude AI
 
+## 💥 Staging Environment: Break Things Freely
+**Staging/canary**: No need to drain nodes, wait for pods, or avoid disruption. This environment is for testing infrastructure changes. Kill nodes, break workflows, experiment freely - no production workloads here.
+
 ## ⚠️ CRITICAL RULE #1: NEVER USE TERRAFORM
 
 **THIS PROJECT USES OPENTOFU (tofu), NOT TERRAFORM!**

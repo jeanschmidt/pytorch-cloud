@@ -1,5 +1,8 @@
 # Kubernetes Mode Migration - Verification Report
 
+## 💥 Staging Environment: Break Things Freely
+**Staging/canary**: No need to drain nodes, wait for pods, or avoid disruption. This environment is for testing infrastructure changes. Kill nodes, break workflows, experiment freely - no production workloads here.
+
 ## ✅ ALL ISSUES FIXED - MIGRATION READY
 
 After comprehensive verification, ALL critical issues have been identified and resolved:

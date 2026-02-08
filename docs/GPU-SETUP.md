@@ -2,6 +2,9 @@
 
 This guide covers GPU-specific configuration and troubleshooting for pytorch-cloud.
 
+## 💥 Staging Environment: Break Things Freely
+**Staging/canary**: No need to drain nodes, wait for pods, or avoid disruption. This environment is for testing infrastructure changes. Kill nodes, break workflows, experiment freely - no production workloads here.
+
 ## Overview
 
 pytorch-cloud provides NVIDIA GPU support for PyTorch CI/CD workloads through **Kubernetes mode**:

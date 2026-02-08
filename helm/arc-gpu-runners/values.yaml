@@ -26,7 +26,7 @@ containerMode:
 template:
   spec:
     serviceAccountName: arc-runner
-    
+
     # Node selector - only schedule on GPU nodes
     nodeSelector:
       nvidia.com/gpu: "true"
@@ -42,7 +42,6 @@ template:
       - name: runner
         # Lightweight runner image - workflows specify GPU containers
         image: ghcr.io/actions/actions-runner:latest
-        command: ["/home/runner/run.sh"]
         env:
           - name: RUNNER_FEATURE_FLAG_EPHEMERAL
             value: "true"

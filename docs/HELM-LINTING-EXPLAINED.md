@@ -1,5 +1,8 @@
 # Helm "Linting" Explanation
 
+## 💥 Staging Environment: Break Things Freely
+**Staging/canary**: No need to drain nodes, wait for pods, or avoid disruption. This environment is for testing infrastructure changes. Kill nodes, break workflows, experiment freely - no production workloads here.
+
 ## Why No Helm Chart Linting?
 
 The `helm/` directory structure in this project is **not standard Helm charts**. Here's why:

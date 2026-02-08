@@ -2,6 +2,9 @@
 
 Thank you for your interest in contributing to pytorch-cloud!
 
+## 💥 Staging Environment: Break Things Freely
+**Staging/canary**: No need to drain nodes, wait for pods, or avoid disruption. This environment is for testing infrastructure changes. Kill nodes, break workflows, experiment freely - no production workloads here.
+
 ## Development Setup
 
 1. **Install prerequisites:**

@@ -1,5 +1,8 @@
 # Final Verification Report - DinD to Kubernetes Mode Migration
 
+## 💥 Staging Environment: Break Things Freely
+**Staging/canary**: No need to drain nodes, wait for pods, or avoid disruption. This environment is for testing infrastructure changes. Kill nodes, break workflows, experiment freely - no production workloads here.
+
 ## ✅ ALL CRITICAL ISSUES FIXED
 
 ### Summary of Issues Found & Resolved

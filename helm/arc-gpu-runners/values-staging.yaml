@@ -13,7 +13,7 @@ containerMode:
 template:
   spec:
     serviceAccountName: arc-runner
-    
+
     nodeSelector:
       nvidia.com/gpu: "true"
 
@@ -26,7 +26,6 @@ template:
     containers:
       - name: runner
         image: ghcr.io/actions/actions-runner:latest
-        command: ["/home/runner/run.sh"]
         env:
           - name: RUNNER_FEATURE_FLAG_EPHEMERAL
             value: "true"

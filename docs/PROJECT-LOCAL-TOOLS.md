@@ -1,5 +1,8 @@
 # Project-Local Tool Installation Philosophy
 
+## 💥 Staging Environment: Break Things Freely
+**Staging/canary**: No need to drain nodes, wait for pods, or avoid disruption. This environment is for testing infrastructure changes. Kill nodes, break workflows, experiment freely - no production workloads here.
+
 ## Why Project-Local?
 
 Engineers working on this project also work on many other similar but distinct projects. Each project may require different versions of the same tools. Installing tools globally or in user directories creates version conflicts and "works on my machine" problems.

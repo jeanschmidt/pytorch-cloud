@@ -37,7 +37,6 @@ template:
     containers:
       - name: runner
         image: ghcr.io/actions/actions-runner:latest
-        command: ["/home/runner/run.sh"]
         env:
           - name: RUNNER_FEATURE_FLAG_EPHEMERAL
             value: "true"
@@ -51,7 +50,7 @@ template:
         volumeMounts:
           - name: work
             mountPath: /home/runner/_work
-    
+
     volumes:
       - name: work
         ephemeral:
