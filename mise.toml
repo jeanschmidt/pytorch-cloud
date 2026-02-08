@@ -16,6 +16,9 @@ packer = "1.10"
 # Linting tools
 shellcheck = "latest"
 shfmt = "latest"
+hadolint = "latest"
+# Python tools
+uv = "latest"
 
 # Note: mise uses "terraform" as the tool name, but it installs OpenTofu (tofu) binary
 # The actual command you should use is "tofu", not "terraform"
