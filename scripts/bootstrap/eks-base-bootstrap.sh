@@ -37,35 +37,6 @@ echo "vm.max_map_count=262144" >>/etc/sysctl.conf
 mkdir -p /var/cache/ccache
 chmod 777 /var/cache/ccache
 
-# Configure CPU frequency governor for performance (disable power saving)
-# This ensures consistent CPU performance for predictable workloads
-echo "Configuring CPU governor for maximum performance..."
-for cpu_governor in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
-	if [ -f "$cpu_governor" ]; then
-		echo "performance" >"$cpu_governor"
-	fi
-done
-
-# Make CPU governor settings persistent
-cat >/etc/systemd/system/cpu-performance.service <<'EOF'
-[Unit]
-Description=Set CPU governor to performance mode
-After=multi-user.target
-
-[Service]
-Type=oneshot
-ExecStart=/bin/bash -c 'for gov in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo performance > $gov 2>/dev/null || true; done'
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
-systemctl enable cpu-performance.service
-systemctl start cpu-performance.service
-
 echo "Base infrastructure node post-bootstrap completed at $(date)"
 echo "Node taint: CriticalAddonsOnly=true:NoSchedule"
 echo "This node will only run system components with matching tolerations"
-echo "CPU governor: performance mode enabled for predictable performance"
