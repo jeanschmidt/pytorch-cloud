@@ -59,11 +59,11 @@ clean:
 # ============================================================================
 
 # Run all linting checks
-lint: _auto-setup lint-tofu lint-shell lint-yaml lint-docker lint-helm lint-python validate-runners
+lint: _auto-setup lint-tofu lint-shell lint-yaml lint-docker lint-helm validate-runners
     @echo "✓ All linting passed"
 
 # Auto-fix all linting issues where possible
-lint-fix: _auto-setup lint-fix-tofu lint-fix-shell lint-fix-yaml lint-fix-python
+lint-fix: _auto-setup lint-fix-tofu lint-fix-shell lint-fix-yaml
     @echo "✓ All auto-fixes applied"
 
 # Lint OpenTofu/Terraform files
@@ -83,7 +83,7 @@ lint-shell: _auto-setup
     @echo "→ Linting shell scripts..."
     @if command -v shellcheck >/dev/null 2>&1; then \
         shellcheck scripts/bootstrap/*.sh scripts/hooks/*.sh; \
-        shellcheck -e SC2148,SC2034,SC2215,SC2154 -x terraform/modules/eks/user-data-*.sh.tpl terraform/modules/gpu/user-data-*.sh.tpl 2>/dev/null || true; \
+        shellcheck -e SC2148,SC2034,SC2215,SC2154 -x terraform/modules/eks/user-data-*.sh.tpl 2>/dev/null || true; \
     else \
         echo "  ❌ ERROR: shellcheck not found."; \
         echo "  Install via mise: mise install shellcheck"; \
@@ -151,58 +151,7 @@ lint-helm: _auto-setup
         echo "  ⚠️  helm not installed (optional for linting)"; \
     fi
 
-# Lint Python code (when python code exists)
-lint-python: _auto-setup
-    @echo "→ Linting Python code..."
-    @if [ -d "python/" ]; then \
-        if [ -f ".venv/bin/ruff" ]; then \
-            (cd python/ && ../.venv/bin/ruff check .); \
-            (cd python/ && ../.venv/bin/ruff format --check .); \
-            if [ -f "../.venv/bin/mypy" ]; then \
-                (cd python/ && ../.venv/bin/mypy . || true); \
-            fi; \
-        elif command -v ruff >/dev/null 2>&1; then \
-            (cd python/ && ruff check .); \
-            (cd python/ && ruff format --check .); \
-            if command -v mypy >/dev/null 2>&1; then \
-                (cd python/ && mypy . || true); \
-            fi; \
-        else \
-            echo "  ❌ ERROR: ruff not found in project venv or system."; \
-            echo "  Run: just setup"; \
-            exit 1; \
-        fi; \
-    else \
-        echo "  (no Python code yet)"; \
-    fi
 
-# Auto-fix Python formatting
-lint-fix-python: _auto-setup
-    @echo "→ Formatting Python code..."
-    @if [ -d "python/" ]; then \
-        if [ -f ".venv/bin/ruff" ]; then \
-            (cd python/ && ../.venv/bin/ruff check --fix .); \
-            (cd python/ && ../.venv/bin/ruff format .); \
-        elif command -v ruff >/dev/null 2>&1; then \
-            (cd python/ && ruff check --fix .); \
-            (cd python/ && ruff format .); \
-        else \
-            echo "  ❌ ERROR: ruff not found in project venv or system."; \
-            echo "  Run: just setup"; \
-            exit 1; \
-        fi; \
-    else \
-        echo "  (no Python code yet)"; \
-    fi
-
-# Lint Packer templates
-lint-packer:
-    @echo "→ Validating Packer templates..."
-    @if command -v packer >/dev/null 2>&1; then \
-        find ami/ -name "*.pkr.hcl" -exec packer validate {} \; || true; \
-    else \
-        echo "  ⚠️  packer not installed. Skipping..."; \
-    fi
 
 # ============================================================================
 # DEPLOYMENT
@@ -630,18 +579,6 @@ k8s-validate:
         kubectl kustomize "$dir" > /dev/null
     done
 
-# ============================================================================
-# AMI
-# ============================================================================
-
-# Build an AMI using Packer
-ami-build name:
-    cd ami/{{name}} && packer build .
-
-# Validate Packer templates
-ami-validate:
-    @command -v packer > /dev/null || { echo "❌ ERROR: packer not found. Install: mise install packer"; exit 1; }
-    @for dir in ami/*/; do echo "Validating $dir..."; (cd "$dir" && packer init . > /dev/null && packer validate .); done
 
 # Validate job container QoS configuration in ConfigMaps (Guaranteed QoS: requests == limits)
 validate-runners:
@@ -652,7 +589,7 @@ validate-runners:
 # ============================================================================
 
 # Run all static validation (linting + Terraform validation + runner QoS)
-validate: lint tf-validate ami-validate k8s-validate validate-runners
+validate: lint tf-validate k8s-validate validate-runners
     @echo "✓ All validation passed"
 
 # Run all checks (for CI) - alias for validate
@@ -681,9 +618,9 @@ _setup-terraform:
 
 _setup-linters:
     @if [ ! -d .venv ] || [ ! -f .venv/bin/yamllint ]; then \
-        echo "→ Setting up Python linters (first time only)..."; \
+        echo "→ Setting up YAML linter (first time only)..."; \
         command -v uv > /dev/null || { echo "❌ ERROR: 'uv' not found. Install: https://docs.astral.sh/uv/"; exit 1; }; \
         uv venv .venv --python 3.12 --quiet; \
-        uv pip install --quiet yamllint ruff mypy; \
-        echo "✓ Python linters installed in .venv/"; \
+        uv pip install --quiet yamllint; \
+        echo "✓ YAML linter installed in .venv/"; \
     fi
