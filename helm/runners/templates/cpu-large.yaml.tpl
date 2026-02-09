@@ -35,6 +35,10 @@ template:
   spec:
     serviceAccountName: arc-runner
 
+    # Schedule runner pods on CPU compute nodes
+    nodeSelector:
+      workload-type: github-runner
+
     # Tolerate CPU architecture taints
     tolerations:
       - key: cpu-type

@@ -39,18 +39,7 @@ spec:
         - key: node.kubernetes.io/instance-type
           operator: In
           values:
-            # Intel options
-            - c6i.xlarge    # 4 vCPU, 8GB
-            - c6i.2xlarge   # 8 vCPU, 16GB
-            - c6i.4xlarge   # 16 vCPU, 32GB
-            - c6i.8xlarge   # 32 vCPU, 64GB
             - c6i.12xlarge  # 48 vCPU, 96GB
-            # AMD options (usually cheaper)
-            - c6a.xlarge
-            - c6a.2xlarge
-            - c6a.4xlarge
-            - c6a.8xlarge
-            - c6a.12xlarge
 
       # Reference to EC2NodeClass
       nodeClassRef:

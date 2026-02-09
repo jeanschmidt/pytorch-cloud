@@ -36,10 +36,6 @@ spec:
         - key: node.kubernetes.io/instance-type
           operator: In
           values:
-            - g4dn.xlarge    # 1x T4, 4 vCPU, 16GB
-            - g4dn.2xlarge   # 1x T4, 8 vCPU, 32GB
-            - g4dn.4xlarge   # 1x T4, 16 vCPU, 64GB
-            - g4dn.8xlarge   # 1x T4, 32 vCPU, 128GB
             - g4dn.12xlarge  # 4x T4, 48 vCPU, 192GB
 
       nodeClassRef:

@@ -13,6 +13,10 @@ data:
       # Job pods need service account to access cluster resources
       serviceAccountName: arc-runner
 
+      # Schedule job pods on CPU compute nodes
+      nodeSelector:
+        workload-type: github-runner
+
       # Tolerate CPU architecture taints
       tolerations:
         - key: cpu-type
