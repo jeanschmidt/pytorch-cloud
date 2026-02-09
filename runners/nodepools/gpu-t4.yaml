@@ -117,23 +117,11 @@ spec:
     #!/bin/bash
     set -euxo pipefail
 
-    echo "Installing NVIDIA drivers and configuring GPU node..."
-
-    # Add NVIDIA CUDA repository
-    dnf config-manager --add-repo \
-      https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
-
-    # Install NVIDIA driver and container toolkit
-    dnf clean all
-    dnf install -y \
-      nvidia-driver-latest-dkms \
-      nvidia-container-toolkit
-
-    # Configure containerd to use nvidia runtime
-    nvidia-ctk runtime configure --runtime=containerd
-
-    # Restart containerd
-    systemctl restart containerd
+    echo "Configuring GPU node for optimal performance..."
+    
+    # Note: NVIDIA drivers and container toolkit are pre-installed in the
+    # EKS-optimized AL2023 NVIDIA AMI (amazon-eks-node-al2023-x86_64-nvidia)
+    # See: https://docs.aws.amazon.com/eks/latest/userguide/ml-eks-optimized-ami.html
 
     # Configure CPU frequency governor for performance
     for cpu_governor in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
@@ -161,10 +149,11 @@ spec:
     systemctl enable cpu-performance.service
     systemctl start cpu-performance.service
 
-    # Set GPU persistence mode for consistent performance
+    # Enable GPU persistence mode for consistent performance
+    # This keeps the NVIDIA driver loaded even when no processes are using the GPU
     nvidia-smi -pm 1 || true
 
-    echo "T4 GPU node ready with CPU pinning and NUMA awareness configured"
+    echo "T4 GPU node configured with CPU pinning, NUMA awareness, and performance optimizations"
 
     --==BOUNDARY==--
 

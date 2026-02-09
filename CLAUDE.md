@@ -4,7 +4,9 @@
 **Staging/canary**: No need to drain nodes, wait for pods, or avoid disruption. This environment is for testing infrastructure changes. Kill nodes, break workflows, experiment freely - no production workloads here.
 
 ## ⚠️ Version Management
-**CRITICAL**: (1) Latest K8s ≥1.35, Amazon Linux 2 is deprecated (use AL2023). Before proposing version changes/migrations or blaming version issues, research actual latest versions. If you can't verify, STOP and ask user. (2) NEVER update ANY version without asking user first. (3) **STOP IMMEDIATELY before changing ANY version** (packages, dependencies, EKS, K8s, AWS services, Python, Node, build tools, containers, AMIs, etc.) - NO updates/upgrades/downgrades/changes without explicit user approval.
+**CRITICAL**: (1) Latest K8s ≥1.35, Amazon Linux 2 is deprecated (use AL2023). Before proposing version changes/migrations or blaming version issues, research actual latest versions. If you can't verify, STOP and ask user. (2) NEVER update ANY version without asking user first. (3) 
+
+**CLRITICAL** (2) **STOP IMMEDIATELY before changing ANY version** (packages, dependencies, EKS, K8s, AWS services, Python, Node, build tools, containers, AMIs, etc.) - NO updates/upgrades/downgrades/changes without explicit user approval.
 
 ## ⚠️ CRITICAL RULE #1: NEVER USE TERRAFORM
 
