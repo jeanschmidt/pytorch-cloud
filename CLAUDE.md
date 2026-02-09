@@ -8,6 +8,12 @@
 
 **CLRITICAL** (2) **STOP IMMEDIATELY before changing ANY version** (packages, dependencies, EKS, K8s, AWS services, Python, Node, build tools, containers, AMIs, etc.) - NO updates/upgrades/downgrades/changes without explicit user approval.
 
+## 🔴 Task Completion Rule
+**A task is ONLY complete when changes are deployed AND will apply via `just deploy` or related commands.** You can debug, check logs, modify cluster state temporarily, but the task is NOT done until: (1) Changes are deployed to the cluster (staging is fine), (2) Changes persist when running `just deploy`. Don't assume changes work without verification. If you can't apply changes yourself, tell the user to apply first, then verify or ask user to confirm.
+
+## 🚨 Production Environment
+**NEVER make changes to production environment without explicit user approval.** Always test in staging first. Do NOT run deployment commands, kubectl commands, or any state-changing operations against production without the user explicitly asking you to.
+
 ## ⚠️ CRITICAL RULE #1: NEVER USE TERRAFORM
 
 **THIS PROJECT USES OPENTOFU (tofu), NOT TERRAFORM!**
