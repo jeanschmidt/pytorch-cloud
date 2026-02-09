@@ -8,7 +8,7 @@ maxRunners: {{MAX_RUNNERS}}
 runnerGroup: "default"
 
 containerMode:
-  type: "kubernetes"
+  type: "kubernetes-novolume"
 
 controllerServiceAccount:
   namespace: arc-systems
@@ -35,19 +35,15 @@ template:
   spec:
     serviceAccountName: arc-runner
 
-    # Runner pod should be lightweight and NOT request GPU
-    # The GPU will be allocated to job pods via the hook template
-    # However, we still schedule runner on GPU nodes so job pods can run locally
+    # Schedule runner pods on CPU compute nodes
     nodeSelector:
-      nvidia.com/gpu: "true"
-      nvidia.com/gpu.product: "T4"
+      workload-type: github-runner
 
+    # Tolerate CPU architecture taints
     tolerations:
-      - key: nvidia.com/gpu
-        value: "t4"
-        effect: NoSchedule
       - key: cpu-type
-        value: "intel-xeon"
+        operator: Equal
+        value: "compute-optimized"
         effect: NoSchedule
 
     containers:
@@ -71,21 +67,10 @@ template:
             cpu: "200m"
             memory: "512Mi"
         volumeMounts:
-          - name: work
-            mountPath: /home/runner/_work
           - name: hook-extensions
             mountPath: /home/runner/hook-extensions
 
     volumes:
-      - name: work
-        ephemeral:
-          volumeClaimTemplate:
-            spec:
-              accessModes: ["ReadWriteOnce"]
-              resources:
-                requests:
-                  storage: 200Gi
-              storageClassName: gp3
       - name: hook-extensions
         configMap:
           name: arc-runner-hook-gpu-t4

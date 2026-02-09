@@ -8,7 +8,7 @@ maxRunners: {{MAX_RUNNERS}}
 runnerGroup: "default"
 
 containerMode:
-  type: "kubernetes"
+  type: "kubernetes-novolume"
 
 controllerServiceAccount:
   namespace: arc-systems
@@ -66,21 +66,10 @@ template:
             cpu: "200m"
             memory: "512Mi"
         volumeMounts:
-          - name: work
-            mountPath: /home/runner/_work
           - name: hook-extensions
             mountPath: /home/runner/hook-extensions
 
     volumes:
-      - name: work
-        ephemeral:
-          volumeClaimTemplate:
-            spec:
-              accessModes: ["ReadWriteOnce"]
-              resources:
-                requests:
-                  storage: 100Gi
-              storageClassName: gp3
       - name: hook-extensions
         configMap:
           name: arc-runner-hook-cpu-large
