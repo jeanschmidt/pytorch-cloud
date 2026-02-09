@@ -41,10 +41,44 @@ echo "vm.max_map_count=262144" >>/etc/sysctl.conf
 mkdir -p /var/cache/ccache
 chmod 777 /var/cache/ccache
 
-# Set GPU persistence mode
+# Configure CPU frequency governor for performance (disable power saving)
+# This ensures consistent CPU performance for predictable benchmark workloads
+echo "Configuring CPU governor for maximum performance..."
+for cpu_governor in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+	if [ -f "$cpu_governor" ]; then
+		echo "performance" >"$cpu_governor"
+	fi
+done
+
+# Make CPU governor settings persistent
+cat >/etc/systemd/system/cpu-performance.service <<'EOF'
+[Unit]
+Description=Set CPU governor to performance mode
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'for gov in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo performance > $gov 2>/dev/null || true; done'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable cpu-performance.service
+systemctl start cpu-performance.service
+
+# Set GPU persistence mode for consistent performance
 nvidia-smi -pm 1 || true
+
+# Lock GPU clocks to maximum for consistent performance (optional, may increase power usage)
+# Uncomment if you need absolute maximum GPU performance consistency
+# nvidia-smi -lgc $(nvidia-smi --query-gpu=clocks.max.graphics --format=csv,noheader,nounits | head -1) || true
 
 # Test GPU
 nvidia-smi || echo "WARNING: nvidia-smi failed"
 
 echo "Post-bootstrap GPU configuration completed at $(date)"
+echo "CPU governor: performance mode enabled for predictable performance"
+echo "GPU persistence mode: enabled for consistent GPU performance"

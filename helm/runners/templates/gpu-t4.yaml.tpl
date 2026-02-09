@@ -52,12 +52,15 @@ template:
           - name: RUNNER_FEATURE_FLAG_EPHEMERAL
             value: "true"
         resources:
+          # GUARANTEED QoS: requests == limits (integer values)
+          # Provides dedicated CPU cores via static CPU manager policy
+          # NUMA-local memory and co-located GPU via topology manager
           limits:
             cpu: "8"
             memory: "32Gi"
           requests:
-            cpu: "4"
-            memory: "16Gi"
+            cpu: "8"
+            memory: "32Gi"
         volumeMounts:
           - name: work
             mountPath: /home/runner/_work

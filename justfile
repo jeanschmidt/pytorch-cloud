@@ -396,7 +396,7 @@ deploy-images env: _auto-setup
     echo "GPU workflows should specify GPU-enabled container images in their workflow files."
 
 # Deploy runners via Helm (ARC requires Helm, not kubectl apply)
-deploy-runners env: _auto-setup
+deploy-runners env: _auto-setup validate-runners
     @echo ""
     @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     @echo "🏃 STEP 4: Runners & NodePools"
@@ -623,12 +623,16 @@ ami-validate:
     @command -v packer > /dev/null || { echo "❌ ERROR: packer not found. Install: mise install packer"; exit 1; }
     @for dir in ami/*/; do echo "Validating $dir..."; (cd "$dir" && packer init . > /dev/null && packer validate .); done
 
+# Validate runner QoS configuration (Guaranteed QoS: requests == limits)
+validate-runners:
+    @bash scripts/validate-runner-qos.sh
+
 # ============================================================================
 # CI HELPERS
 # ============================================================================
 
-# Run all static validation (linting + Terraform validation)
-validate: lint tf-validate ami-validate k8s-validate
+# Run all static validation (linting + Terraform validation + runner QoS)
+validate: lint tf-validate ami-validate k8s-validate validate-runners
     @echo "✓ All validation passed"
 
 # Run all checks (for CI) - alias for validate

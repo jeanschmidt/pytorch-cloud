@@ -289,6 +289,9 @@ This project includes NVIDIA GPU support for PyTorch workloads:
 - **GPU Operator**: (Optional) For advanced GPU management
 - **Custom AMIs**: Pre-configured with NVIDIA drivers
 - **Docker GPU Runtime**: nvidia-docker2 integration
+- **Resource Isolation**: CPU pinning, NUMA awareness, and Guaranteed QoS for consistent performance
+
+See [docs/RESOURCE-ISOLATION.md](docs/RESOURCE-ISOLATION.md) for details on performance optimization and benchmark consistency.
 
 ## Environments
 

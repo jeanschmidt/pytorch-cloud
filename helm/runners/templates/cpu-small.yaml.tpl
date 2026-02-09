@@ -42,12 +42,14 @@ template:
           - name: RUNNER_FEATURE_FLAG_EPHEMERAL
             value: "true"
         resources:
+          # GUARANTEED QoS: requests == limits (integer values)
+          # Provides dedicated CPU cores via static CPU manager policy
           limits:
             cpu: "4"
             memory: "8Gi"
           requests:
-            cpu: "2"
-            memory: "4Gi"
+            cpu: "4"
+            memory: "8Gi"
         volumeMounts:
           - name: work
             mountPath: /home/runner/_work

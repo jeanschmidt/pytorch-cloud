@@ -19,6 +19,29 @@ spec:
   kubelet:
     config:
       maxPods: 110
+      # CPU Manager: Static policy for CPU pinning
+      # Provides dedicated CPU cores to Guaranteed QoS pods
+      # CRITICAL for benchmark consistency - prevents noisy neighbor on CPU
+      cpuManagerPolicy: static
+      cpuManagerReconcilePeriod: 10s
+      # Reserve CPUs 0-3 for system daemons on GPU nodes (more overhead than CPU nodes)
+      # GPU nodes typically have more CPUs, so reserve more for system tasks
+      systemReserved:
+        cpu: "4000m"
+        memory: "4Gi"
+        ephemeral-storage: "20Gi"
+      kubeReserved:
+        cpu: "2000m"
+        memory: "2Gi"
+      # Memory Manager: Static policy for NUMA-aware memory allocation
+      # Pins memory to NUMA nodes for better performance
+      # CRITICAL for benchmark consistency - prevents memory access penalties
+      memoryManagerPolicy: Static
+      # Topology Manager: single-numa-node policy
+      # Ensures CPU, memory, and GPU are allocated from the same NUMA node
+      # CRITICAL for GPU workloads - minimizes PCIe latency
+      topologyManagerPolicy: single-numa-node
+      topologyManagerScope: pod
     flags:
       - --node-labels=nvidia.com/gpu=true
 

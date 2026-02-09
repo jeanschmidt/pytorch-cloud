@@ -16,6 +16,27 @@ spec:
   kubelet:
     config:
       maxPods: 110
+      # CPU Manager: Static policy for CPU pinning
+      # Provides dedicated CPU cores to Guaranteed QoS pods
+      cpuManagerPolicy: static
+      cpuManagerReconcilePeriod: 10s
+      # Reserve CPUs 0-1 for system daemons (kubelet, containerd, etc.)
+      # This prevents workload pods from using these cores
+      systemReserved:
+        cpu: "2000m"
+        memory: "2Gi"
+        ephemeral-storage: "10Gi"
+      kubeReserved:
+        cpu: "1000m"
+        memory: "1Gi"
+      # Memory Manager: Static policy for NUMA-aware memory allocation
+      # Pins memory to NUMA nodes for better performance
+      memoryManagerPolicy: Static
+      # Topology Manager: single-numa-node policy
+      # Ensures CPU and memory are allocated from the same NUMA node
+      # Critical for performance consistency on multi-socket systems
+      topologyManagerPolicy: single-numa-node
+      topologyManagerScope: pod
     flags:
       - --register-with-taints=CriticalAddonsOnly=true:NoSchedule
 
