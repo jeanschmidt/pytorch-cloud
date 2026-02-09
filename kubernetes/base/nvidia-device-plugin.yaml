@@ -28,6 +28,10 @@ spec:
         - key: nvidia.com/gpu
           operator: Exists
           effect: NoSchedule
+        # Tolerate CPU architecture taints on GPU nodes
+        - key: cpu-type
+          operator: Exists
+          effect: NoSchedule
       priorityClassName: system-node-critical
       containers:
         - image: nvcr.io/nvidia/k8s-device-plugin:v0.14.5
