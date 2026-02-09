@@ -395,23 +395,15 @@ deploy-images env: _auto-setup
     echo "Note: This lightweight image is used for both CPU and GPU runners."
     echo "GPU workflows should specify GPU-enabled container images in their workflow files."
 
-# Generate runner configs from templates
-generate-runner-configs:
-    @echo "→ Generating runner configs from templates..."
-    @bash helm/runners/generate.sh staging
-    @bash helm/runners/generate.sh production
-    @echo ""
-
-# Verify runner configs match templates
-verify-runner-configs:
-    @bash helm/runners/verify.sh
-
 # Deploy runners via Helm (ARC requires Helm, not kubectl apply)
-deploy-runners env: _auto-setup generate-runner-configs
+deploy-runners env: _auto-setup
     @echo ""
     @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     @echo "🏃 STEP 4: Runners & NodePools"
     @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo ""
+    @echo "Generating runner configs for {{env}}..."
+    @bash helm/runners/generate.sh {{env}}
     @echo ""
     @echo "Deploying Karpenter NodePools and ARC runner scale sets..."
     @echo ""
@@ -450,7 +442,7 @@ _deploy-runner-cpu-small env:
     helm upgrade --install arc-cpu-small \
         --namespace arc-runners \
         --create-namespace \
-        -f helm/runners/cpu-small-{{env}}.yaml \
+        -f helm/runners/generated/cpu-small.yaml \
         --set template.spec.securityContext.runAsUser=1000 \
         --set template.spec.securityContext.runAsGroup=1000 \
         --set template.spec.securityContext.fsGroup=1000 \
@@ -466,7 +458,7 @@ _deploy-runner-cpu-medium env:
     helm upgrade --install arc-cpu-medium \
         --namespace arc-runners \
         --create-namespace \
-        -f helm/runners/cpu-medium-{{env}}.yaml \
+        -f helm/runners/generated/cpu-medium.yaml \
         --set template.spec.securityContext.runAsUser=1000 \
         --set template.spec.securityContext.runAsGroup=1000 \
         --set template.spec.securityContext.fsGroup=1000 \
@@ -482,7 +474,7 @@ _deploy-runner-cpu-large env:
     helm upgrade --install arc-cpu-large \
         --namespace arc-runners \
         --create-namespace \
-        -f helm/runners/cpu-large-{{env}}.yaml \
+        -f helm/runners/generated/cpu-large.yaml \
         --set template.spec.securityContext.runAsUser=1000 \
         --set template.spec.securityContext.runAsGroup=1000 \
         --set template.spec.securityContext.fsGroup=1000 \
@@ -498,7 +490,7 @@ _deploy-runner-gpu-t4 env:
     helm upgrade --install arc-gpu-t4 \
         --namespace arc-runners \
         --create-namespace \
-        -f helm/runners/gpu-t4-{{env}}.yaml \
+        -f helm/runners/generated/gpu-t4.yaml \
         --set template.spec.securityContext.runAsUser=1000 \
         --set template.spec.securityContext.runAsGroup=1000 \
         --set template.spec.securityContext.fsGroup=1000 \
@@ -636,7 +628,7 @@ ami-validate:
 # ============================================================================
 
 # Run all static validation (linting + Terraform validation)
-validate: lint tf-validate ami-validate k8s-validate verify-runner-configs
+validate: lint tf-validate ami-validate k8s-validate
     @echo "✓ All validation passed"
 
 # Run all checks (for CI) - alias for validate
