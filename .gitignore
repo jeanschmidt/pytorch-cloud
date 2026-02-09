@@ -13,15 +13,16 @@ dist/
 build/
 
 # Terraform
-.terraform/
+!terraform/*.tfvars.example
 .terraform.d/
+.terraform.lock.hcl
+.terraform/
+.terragrunt-cache/
+*.tfplan
 *.tfstate
 *.tfstate.*
-*.tfplan
-tfplan
 *.tfvars
-!terraform/*.tfvars.example
-.terragrunt-cache/
+tfplan
 
 # Editors
 .vscode/
