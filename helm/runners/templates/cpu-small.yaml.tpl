@@ -34,6 +34,13 @@ listenerTemplate:
 template:
   spec:
     serviceAccountName: arc-runner
+
+    # Tolerate CPU architecture taints (any CPU type)
+    tolerations:
+      - key: cpu-type
+        operator: Exists
+        effect: NoSchedule
+
     containers:
       - name: runner
         image: ghcr.io/actions/actions-runner:latest

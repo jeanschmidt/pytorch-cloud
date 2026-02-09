@@ -43,6 +43,9 @@ template:
       - key: nvidia.com/gpu
         value: "t4"
         effect: NoSchedule
+      - key: cpu-type
+        value: "intel-xeon"
+        effect: NoSchedule
 
     containers:
       - name: runner
@@ -52,9 +55,6 @@ template:
           - name: RUNNER_FEATURE_FLAG_EPHEMERAL
             value: "true"
         resources:
-          # GUARANTEED QoS: requests == limits (integer values)
-          # Provides dedicated CPU cores via static CPU manager policy
-          # NUMA-local memory and co-located GPU via topology manager
           limits:
             cpu: "8"
             memory: "32Gi"

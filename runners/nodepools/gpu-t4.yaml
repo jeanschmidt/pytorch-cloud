@@ -48,9 +48,13 @@ spec:
         name: gpu-t4-runners
 
       # Taint GPU nodes - only pods requesting GPUs can schedule
+      # Also taint with CPU type for resource isolation
       taints:
         - key: nvidia.com/gpu
           value: "t4"
+          effect: NoSchedule
+        - key: cpu-type
+          value: "intel-xeon"  # g4dn instances use Intel CPUs
           effect: NoSchedule
 
 ---
@@ -65,97 +69,87 @@ spec:
 
   subnetSelectorTerms:
     - tags:
-        karpenter.sh/discovery: "${CLUSTER_NAME}"
+        karpenter.sh/discovery: "pytorch-arc-staging"
 
   securityGroupSelectorTerms:
     - tags:
-        karpenter.sh/discovery: "${CLUSTER_NAME}"
+        karpenter.sh/discovery: "pytorch-arc-staging"
 
-  role: "${CLUSTER_NAME}-node-role"
+  role: "pytorch-arc-staging-node-role"
 
-  # CRITICAL: Configure kubelet AND install NVIDIA drivers
+  # Kubelet configuration via NodeConfig (AL2023)
+  # 
+  # Karpenter automatically generates the EKS join configuration (cluster endpoint,
+  # CA cert, etc.) and merges it with this NodeConfig. We only specify the kubelet
+  # settings that aren't available in EC2NodeClass.spec.kubelet.
+  # 
+  # This configures:
+  # - CPU Manager: static allocation with full-pcpus-only
+  # - Topology Manager: single-numa-node policy for NUMA awareness
+  # - Performance: CPU governor set to performance mode
+  # - GPU: NVIDIA persistence mode for consistent performance
   userData: |
-    MIME-Version: 1.0
-    Content-Type: multipart/mixed; boundary="==BOUNDARY=="
-
-    --==BOUNDARY==
-    Content-Type: application/node.eks.aws
-
-    ---
     apiVersion: node.eks.aws/v1alpha1
     kind: NodeConfig
     spec:
       kubelet:
         config:
-          maxPods: 110
-          # CPU Manager: Static policy for CPU pinning
-          # CRITICAL for benchmark consistency - prevents noisy neighbor on CPU
+          # CPU Manager: Static allocation with full physical cores only
           cpuManagerPolicy: static
-          cpuManagerReconcilePeriod: 10s
-          # Reserve CPUs 0-3 for system daemons on GPU nodes
-          systemReserved:
-            cpu: "4000m"
-            memory: "4Gi"
-            ephemeral-storage: "20Gi"
-          kubeReserved:
-            cpu: "2000m"
-            memory: "2Gi"
-          # Memory Manager: Static policy for NUMA-aware memory allocation
-          # CRITICAL for benchmark consistency - prevents memory access penalties
-          memoryManagerPolicy: Static
-          # Topology Manager: single-numa-node policy
-          # Ensures CPU, memory, and GPU are allocated from the same NUMA node
-          # CRITICAL for GPU workloads - minimizes PCIe latency
+          cpuManagerPolicyOptions:
+            full-pcpus-only: "true"
+          
+          # Topology Manager: NUMA-aware pod placement
           topologyManagerPolicy: single-numa-node
           topologyManagerScope: pod
-        flags:
-          - --node-labels=nvidia.com/gpu=true
+          
+          # Optional: Reserve CPUs for system daemons (kube-proxy, etc.)
+          # Uncomment and adjust based on instance size if needed:
+          # reservedSystemCPUs: "0-1"
+      
+      instance:
+        # Post-bootstrap script: Configure performance settings
+        localUserData: |
+          #!/bin/bash
+          set -euo pipefail
+          
+          echo "Post-bootstrap: Configuring GPU node performance settings..."
+          
+          # Note: NVIDIA drivers and container toolkit are pre-installed in the
+          # EKS-optimized AL2023 NVIDIA AMI (amazon-eks-node-al2023-x86_64-nvidia)
+          # See: https://docs.aws.amazon.com/eks/latest/userguide/ml-eks-optimized-ami.html
 
-    --==BOUNDARY==
-    Content-Type: text/x-shellscript; charset="us-ascii"
+          # Configure CPU frequency governor for performance
+          for cpu_governor in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+            if [ -f "$cpu_governor" ]; then
+              echo "performance" > "$cpu_governor" || true
+            fi
+          done
+          
+          # Make CPU governor settings persistent
+          cat > /etc/systemd/system/cpu-performance.service <<'EOFS'
+          [Unit]
+          Description=Set CPU governor to performance mode
+          After=multi-user.target
 
-    #!/bin/bash
-    set -euxo pipefail
+          [Service]
+          Type=oneshot
+          ExecStart=/bin/bash -c 'for gov in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo performance > $gov 2>/dev/null || true; done'
+          RemainAfterExit=yes
 
-    echo "Configuring GPU node for optimal performance..."
-    
-    # Note: NVIDIA drivers and container toolkit are pre-installed in the
-    # EKS-optimized AL2023 NVIDIA AMI (amazon-eks-node-al2023-x86_64-nvidia)
-    # See: https://docs.aws.amazon.com/eks/latest/userguide/ml-eks-optimized-ami.html
+          [Install]
+          WantedBy=multi-user.target
+          EOFS
+          
+          systemctl daemon-reload
+          systemctl enable cpu-performance.service
+          systemctl start cpu-performance.service
 
-    # Configure CPU frequency governor for performance
-    for cpu_governor in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
-      if [ -f "$cpu_governor" ]; then
-        echo "performance" > "$cpu_governor"
-      fi
-    done
-    
-    # Make CPU governor settings persistent
-    cat > /etc/systemd/system/cpu-performance.service <<'EOFS'
-    [Unit]
-    Description=Set CPU governor to performance mode
-    After=multi-user.target
+          # Enable GPU persistence mode for consistent performance
+          # This keeps the NVIDIA driver loaded even when no processes are using the GPU
+          nvidia-smi -pm 1 || true
 
-    [Service]
-    Type=oneshot
-    ExecStart=/bin/bash -c 'for gov in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo performance > $gov 2>/dev/null || true; done'
-    RemainAfterExit=yes
-
-    [Install]
-    WantedBy=multi-user.target
-    EOFS
-    
-    systemctl daemon-reload
-    systemctl enable cpu-performance.service
-    systemctl start cpu-performance.service
-
-    # Enable GPU persistence mode for consistent performance
-    # This keeps the NVIDIA driver loaded even when no processes are using the GPU
-    nvidia-smi -pm 1 || true
-
-    echo "T4 GPU node configured with CPU pinning, NUMA awareness, and performance optimizations"
-
-    --==BOUNDARY==--
+          echo "GPU node performance configuration complete"
 
   blockDeviceMappings:
     - deviceName: /dev/xvda

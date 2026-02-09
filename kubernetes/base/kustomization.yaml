@@ -8,5 +8,6 @@ resources:
   - runner-hooks-configmap.yaml
   - runner-serviceaccount.yaml
   - storageclass-gp3.yaml
+  - kubelet-config-daemonset.yaml
 
 # Don't set a default namespace - resources specify their own
