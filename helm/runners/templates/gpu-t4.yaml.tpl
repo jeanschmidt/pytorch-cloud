@@ -35,6 +35,9 @@ template:
   spec:
     serviceAccountName: arc-runner
 
+    # Runner pod should be lightweight and NOT request GPU
+    # The GPU will be allocated to job pods via the hook template
+    # However, we still schedule runner on GPU nodes so job pods can run locally
     nodeSelector:
       nvidia.com/gpu: "true"
       nvidia.com/gpu.product: "T4"
@@ -54,16 +57,24 @@ template:
         env:
           - name: RUNNER_FEATURE_FLAG_EPHEMERAL
             value: "true"
+          # Point to hook template for job pod customization
+          - name: ACTIONS_RUNNER_CONTAINER_HOOK_TEMPLATE
+            value: /home/runner/hook-extensions/job-pod.yaml
         resources:
+          # LIGHTWEIGHT runner pod - NO GPU requested here
+          # Job pods get the GPU via hook template
+          # Runner is just an orchestrator, doesn't do the actual work
           limits:
-            cpu: "8"
-            memory: "32Gi"
+            cpu: "200m"
+            memory: "512Mi"
           requests:
-            cpu: "8"
-            memory: "32Gi"
+            cpu: "200m"
+            memory: "512Mi"
         volumeMounts:
           - name: work
             mountPath: /home/runner/_work
+          - name: hook-extensions
+            mountPath: /home/runner/hook-extensions
 
     volumes:
       - name: work
@@ -75,3 +86,9 @@ template:
                 requests:
                   storage: 200Gi
               storageClassName: gp3
+      - name: hook-extensions
+        configMap:
+          name: arc-runner-hook-gpu-t4
+          items:
+            - key: job-pod.yaml
+              path: job-pod.yaml

@@ -59,7 +59,7 @@ clean:
 # ============================================================================
 
 # Run all linting checks
-lint: _auto-setup lint-tofu lint-shell lint-yaml lint-docker lint-helm lint-python
+lint: _auto-setup lint-tofu lint-shell lint-yaml lint-docker lint-helm lint-python validate-runners
     @echo "✓ All linting passed"
 
 # Auto-fix all linting issues where possible
@@ -623,7 +623,7 @@ ami-validate:
     @command -v packer > /dev/null || { echo "❌ ERROR: packer not found. Install: mise install packer"; exit 1; }
     @for dir in ami/*/; do echo "Validating $dir..."; (cd "$dir" && packer init . > /dev/null && packer validate .); done
 
-# Validate runner QoS configuration (Guaranteed QoS: requests == limits)
+# Validate job container QoS configuration in ConfigMaps (Guaranteed QoS: requests == limits)
 validate-runners:
     @bash scripts/validate-runner-qos.sh
 

@@ -8,6 +8,10 @@ resources:
   - runner-hooks-configmap.yaml
   - runner-serviceaccount.yaml
   - storageclass-gp3.yaml
-  - kubelet-config-daemonset.yaml
+  # ARC container hook templates for job pod customization
+  - arc-runner-hooks-cpu-small.yaml
+  - arc-runner-hooks-cpu-medium.yaml
+  - arc-runner-hooks-cpu-large.yaml
+  - arc-runner-hooks-gpu-t4.yaml
 
 # Don't set a default namespace - resources specify their own

@@ -35,10 +35,11 @@ template:
   spec:
     serviceAccountName: arc-runner
 
-    # Tolerate CPU architecture taints (any CPU type)
+    # Tolerate CPU architecture taints
     tolerations:
       - key: cpu-type
-        operator: Exists
+        operator: Equal
+        value: "compute-optimized"
         effect: NoSchedule
 
     containers:
@@ -48,18 +49,23 @@ template:
         env:
           - name: RUNNER_FEATURE_FLAG_EPHEMERAL
             value: "true"
+          # Point to hook template for job pod customization
+          - name: ACTIONS_RUNNER_CONTAINER_HOOK_TEMPLATE
+            value: /home/runner/hook-extensions/job-pod.yaml
         resources:
-          # GUARANTEED QoS: requests == limits (integer values)
-          # Provides dedicated CPU cores via static CPU manager policy
+          # LIGHTWEIGHT runner pod - job pods get the heavy resources
+          # Runner is just an orchestrator, doesn't do the actual work
           limits:
-            cpu: "4"
-            memory: "8Gi"
+            cpu: "200m"
+            memory: "512Mi"
           requests:
-            cpu: "4"
-            memory: "8Gi"
+            cpu: "200m"
+            memory: "512Mi"
         volumeMounts:
           - name: work
             mountPath: /home/runner/_work
+          - name: hook-extensions
+            mountPath: /home/runner/hook-extensions
 
     volumes:
       - name: work
@@ -71,3 +77,9 @@ template:
                 requests:
                   storage: 50Gi
               storageClassName: gp3
+      - name: hook-extensions
+        configMap:
+          name: arc-runner-hook-cpu-small
+          items:
+            - key: job-pod.yaml
+              path: job-pod.yaml
