@@ -107,9 +107,9 @@ lint-fix-shell: _auto-setup
 lint-yaml: _auto-setup
     @echo "→ Linting YAML files..."
     @if [ -f ".venv/bin/yamllint" ]; then \
-        .venv/bin/yamllint kubernetes/ helm/ runners/ .github/; \
+        .venv/bin/yamllint kubernetes/ helm/ .github/; \
     elif command -v yamllint >/dev/null 2>&1; then \
-        yamllint kubernetes/ helm/ runners/ .github/; \
+        yamllint kubernetes/ helm/ .github/; \
     else \
         echo "  ❌ ERROR: yamllint not found in project venv or system."; \
         echo "  Run: just setup"; \
@@ -120,9 +120,9 @@ lint-yaml: _auto-setup
 lint-fix-yaml: _auto-setup
     @echo "→ Checking YAML files..."
     @if [ -f ".venv/bin/yamllint" ]; then \
-        .venv/bin/yamllint kubernetes/ helm/ runners/ .github/ || true; \
+        .venv/bin/yamllint kubernetes/ helm/ .github/ || true; \
     elif command -v yamllint >/dev/null 2>&1; then \
-        yamllint kubernetes/ helm/ runners/ .github/ || true; \
+        yamllint kubernetes/ helm/ .github/ || true; \
     else \
         echo "  (yamllint not installed, skipping)"; \
     fi
@@ -395,8 +395,19 @@ deploy-images env: _auto-setup
     echo "Note: This lightweight image is used for both CPU and GPU runners."
     echo "GPU workflows should specify GPU-enabled container images in their workflow files."
 
+# Generate runner configs from templates
+generate-runner-configs:
+    @echo "→ Generating runner configs from templates..."
+    @bash helm/runners/generate.sh staging
+    @bash helm/runners/generate.sh production
+    @echo ""
+
+# Verify runner configs match templates
+verify-runner-configs:
+    @bash helm/runners/verify.sh
+
 # Deploy runners via Helm (ARC requires Helm, not kubectl apply)
-deploy-runners env: _auto-setup
+deploy-runners env: _auto-setup generate-runner-configs
     @echo ""
     @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     @echo "🏃 STEP 4: Runners & NodePools"
@@ -625,7 +636,7 @@ ami-validate:
 # ============================================================================
 
 # Run all static validation (linting + Terraform validation)
-validate: lint tf-validate ami-validate k8s-validate
+validate: lint tf-validate ami-validate k8s-validate verify-runner-configs
     @echo "✓ All validation passed"
 
 # Run all checks (for CI) - alias for validate

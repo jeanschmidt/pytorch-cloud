@@ -65,6 +65,7 @@ local/
 .pytest_cache/
 
 # Markdown - agents creates a lot of markdown files, we only want to track the ones that are relevant
+# AGENTS: DO NOT UPDATE THIS LIST, LET HUMANS DECIDE WHAT TO TRACK
 *.md
 !./python/README.md
 !./docs/QUICKSTART.md
