@@ -80,7 +80,7 @@ spec:
   # settings that aren't available in EC2NodeClass.spec.kubelet.
   # 
   # This configures:
-  # - CPU Manager: static allocation with full-pcpus-only
+  # - CPU Manager: static allocation
   # - Topology Manager: single-numa-node policy for NUMA awareness
   # - Performance: CPU governor set to performance mode
   # - GPU: NVIDIA persistence mode for consistent performance
@@ -92,8 +92,6 @@ spec:
         config:
           # CPU Manager: Static allocation with full physical cores only
           cpuManagerPolicy: static
-          cpuManagerPolicyOptions:
-            full-pcpus-only: "true"
           
           # Topology Manager: NUMA-aware pod placement
           topologyManagerPolicy: single-numa-node
@@ -101,7 +99,7 @@ spec:
           
           # Optional: Reserve CPUs for system daemons (kube-proxy, etc.)
           # Uncomment and adjust based on instance size if needed:
-          # reservedSystemCPUs: "0-1"
+          reservedSystemCPUs: "0-1"
       
       instance:
         # Post-bootstrap script: Configure performance settings
