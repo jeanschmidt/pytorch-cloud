@@ -1,0 +1,6 @@
+# Mark generated runner configs as generated
+# This helps GitHub show them as auto-generated in diffs
+cpu-*-staging.yaml linguist-generated=true
+cpu-*-production.yaml linguist-generated=true
+gpu-*-staging.yaml linguist-generated=true
+gpu-*-production.yaml linguist-generated=true

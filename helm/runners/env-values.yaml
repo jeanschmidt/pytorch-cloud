@@ -1,0 +1,22 @@
+# Environment-specific values for runner templates
+# This file defines the differences between staging and production
+
+staging:
+  githubConfigUrl: "https://github.com/pytorch/pytorch-canary"
+  githubConfigSecret: "pytorch-arc-staging"
+  runnerNamePrefix: "c."
+  maxRunners:
+    cpuSmall: 50
+    cpuMedium: 50
+    cpuLarge: 30
+    gpuT4: 20
+
+production:
+  githubConfigUrl: "https://github.com/pytorch"
+  githubConfigSecret: "pytorch-arc-production"
+  runnerNamePrefix: ""
+  maxRunners:
+    cpuSmall: 100
+    cpuMedium: 100
+    cpuLarge: 50
+    gpuT4: 50
