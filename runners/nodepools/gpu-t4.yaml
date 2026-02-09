@@ -73,12 +73,51 @@ spec:
 
   role: "${CLUSTER_NAME}-node-role"
 
-  # CRITICAL: Install NVIDIA drivers
+  # CRITICAL: Configure kubelet AND install NVIDIA drivers
   userData: |
+    MIME-Version: 1.0
+    Content-Type: multipart/mixed; boundary="==BOUNDARY=="
+
+    --==BOUNDARY==
+    Content-Type: application/node.eks.aws
+
+    ---
+    apiVersion: node.eks.aws/v1alpha1
+    kind: NodeConfig
+    spec:
+      kubelet:
+        config:
+          maxPods: 110
+          # CPU Manager: Static policy for CPU pinning
+          # CRITICAL for benchmark consistency - prevents noisy neighbor on CPU
+          cpuManagerPolicy: static
+          cpuManagerReconcilePeriod: 10s
+          # Reserve CPUs 0-3 for system daemons on GPU nodes
+          systemReserved:
+            cpu: "4000m"
+            memory: "4Gi"
+            ephemeral-storage: "20Gi"
+          kubeReserved:
+            cpu: "2000m"
+            memory: "2Gi"
+          # Memory Manager: Static policy for NUMA-aware memory allocation
+          # CRITICAL for benchmark consistency - prevents memory access penalties
+          memoryManagerPolicy: Static
+          # Topology Manager: single-numa-node policy
+          # Ensures CPU, memory, and GPU are allocated from the same NUMA node
+          # CRITICAL for GPU workloads - minimizes PCIe latency
+          topologyManagerPolicy: single-numa-node
+          topologyManagerScope: pod
+        flags:
+          - --node-labels=nvidia.com/gpu=true
+
+    --==BOUNDARY==
+    Content-Type: text/x-shellscript; charset="us-ascii"
+
     #!/bin/bash
     set -euxo pipefail
 
-    echo "Installing NVIDIA drivers..."
+    echo "Installing NVIDIA drivers and configuring GPU node..."
 
     # Add NVIDIA CUDA repository
     dnf config-manager --add-repo \
@@ -96,7 +135,38 @@ spec:
     # Restart containerd
     systemctl restart containerd
 
-    echo "T4 GPU node ready"
+    # Configure CPU frequency governor for performance
+    for cpu_governor in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+      if [ -f "$cpu_governor" ]; then
+        echo "performance" > "$cpu_governor"
+      fi
+    done
+    
+    # Make CPU governor settings persistent
+    cat > /etc/systemd/system/cpu-performance.service <<'EOFS'
+    [Unit]
+    Description=Set CPU governor to performance mode
+    After=multi-user.target
+
+    [Service]
+    Type=oneshot
+    ExecStart=/bin/bash -c 'for gov in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo performance > $gov 2>/dev/null || true; done'
+    RemainAfterExit=yes
+
+    [Install]
+    WantedBy=multi-user.target
+    EOFS
+    
+    systemctl daemon-reload
+    systemctl enable cpu-performance.service
+    systemctl start cpu-performance.service
+
+    # Set GPU persistence mode for consistent performance
+    nvidia-smi -pm 1 || true
+
+    echo "T4 GPU node ready with CPU pinning and NUMA awareness configured"
+
+    --==BOUNDARY==--
 
   blockDeviceMappings:
     - deviceName: /dev/xvda

@@ -86,10 +86,75 @@ spec:
 
   # User data (bootstrap script)
   userData: |
+    MIME-Version: 1.0
+    Content-Type: multipart/mixed; boundary="==BOUNDARY=="
+
+    --==BOUNDARY==
+    Content-Type: application/node.eks.aws
+
+    ---
+    apiVersion: node.eks.aws/v1alpha1
+    kind: NodeConfig
+    spec:
+      kubelet:
+        config:
+          maxPods: 110
+          # CPU Manager: Static policy for CPU pinning
+          # Provides dedicated CPU cores to Guaranteed QoS pods
+          cpuManagerPolicy: static
+          cpuManagerReconcilePeriod: 10s
+          # Reserve CPUs 0-1 for system daemons
+          systemReserved:
+            cpu: "2000m"
+            memory: "2Gi"
+            ephemeral-storage: "10Gi"
+          kubeReserved:
+            cpu: "1000m"
+            memory: "1Gi"
+          # Memory Manager: Static policy for NUMA-aware memory allocation
+          memoryManagerPolicy: Static
+          # Topology Manager: single-numa-node policy
+          # Ensures CPU and memory are allocated from the same NUMA node
+          topologyManagerPolicy: single-numa-node
+          topologyManagerScope: pod
+
+    --==BOUNDARY==
+    Content-Type: text/x-shellscript; charset="us-ascii"
+
     #!/bin/bash
     set -euo pipefail
-    # Standard EKS bootstrap (nodeadm handles automatically in AL2023)
-    echo "CPU node ready for GitHub Actions runners"
+    
+    echo "Configuring CPU runner node..."
+    
+    # Configure CPU frequency governor for performance
+    for cpu_governor in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+      if [ -f "$cpu_governor" ]; then
+        echo "performance" > "$cpu_governor"
+      fi
+    done
+    
+    # Make CPU governor settings persistent
+    cat > /etc/systemd/system/cpu-performance.service <<'EOF'
+    [Unit]
+    Description=Set CPU governor to performance mode
+    After=multi-user.target
+
+    [Service]
+    Type=oneshot
+    ExecStart=/bin/bash -c 'for gov in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo performance > $gov 2>/dev/null || true; done'
+    RemainAfterExit=yes
+
+    [Install]
+    WantedBy=multi-user.target
+    EOF
+    
+    systemctl daemon-reload
+    systemctl enable cpu-performance.service
+    systemctl start cpu-performance.service
+    
+    echo "CPU runner node ready for GitHub Actions runners"
+
+    --==BOUNDARY==--
 
   # Block device mappings
   blockDeviceMappings:
