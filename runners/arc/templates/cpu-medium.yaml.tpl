@@ -1,6 +1,6 @@
 githubConfigUrl: "{{GITHUB_CONFIG_URL}}"
 githubConfigSecret: "{{GITHUB_CONFIG_SECRET}}"
-runnerScaleSetName: "{{RUNNER_NAME_PREFIX}}pytorch-gpu-t4"
+runnerScaleSetName: "{{RUNNER_NAME_PREFIX}}pytorch-cpu-medium"
 
 minRunners: 0
 maxRunners: {{MAX_RUNNERS}}
@@ -35,19 +35,15 @@ template:
   spec:
     serviceAccountName: arc-runner
 
-    # Runner pod should be lightweight and NOT request GPU
-    # The GPU will be allocated to job pods via the hook template
-    # However, we still schedule runner on GPU nodes so job pods can run locally
+    # Schedule runner pods on CPU compute nodes
     nodeSelector:
-      nvidia.com/gpu: "true"
-      nvidia.com/gpu.product: "T4"
+      workload-type: github-runner
 
+    # Tolerate CPU architecture taints
     tolerations:
-      - key: nvidia.com/gpu
-        value: "t4"
-        effect: NoSchedule
       - key: cpu-type
-        value: "intel-xeon"
+        operator: Equal
+        value: "compute-optimized"
         effect: NoSchedule
 
     containers:
@@ -61,8 +57,7 @@ template:
           - name: ACTIONS_RUNNER_CONTAINER_HOOK_TEMPLATE
             value: /home/runner/hook-extensions/job-pod.yaml
         resources:
-          # LIGHTWEIGHT runner pod - NO GPU requested here
-          # Job pods get the GPU via hook template
+          # LIGHTWEIGHT runner pod - job pods get the heavy resources
           # Runner is just an orchestrator, doesn't do the actual work
           limits:
             cpu: "200m"
@@ -84,11 +79,48 @@ template:
               accessModes: ["ReadWriteOnce"]
               resources:
                 requests:
-                  storage: 200Gi
+                  storage: 75Gi
               storageClassName: gp3
       - name: hook-extensions
         configMap:
-          name: arc-runner-hook-gpu-t4
+          name: arc-runner-hook-cpu-medium
           items:
             - key: job-pod.yaml
               path: job-pod.yaml
+---
+# ConfigMap: Job Pod Hook Template for CPU Medium Runners
+# Defines resource requests for workflow job containers in Kubernetes mode
+# Runner pod is lightweight; job pods get the heavy resources
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: arc-runner-hook-cpu-medium
+  namespace: arc-runners
+data:
+  job-pod.yaml: |
+    spec:
+      # Job pods need service account to access cluster resources
+      serviceAccountName: arc-runner
+
+      # Schedule job pods on CPU compute nodes
+      nodeSelector:
+        workload-type: github-runner
+
+      # Tolerate CPU architecture taints
+      tolerations:
+        - key: cpu-type
+          operator: Equal
+          value: "compute-optimized"
+          effect: NoSchedule
+
+      containers:
+        - name: "$job"
+          # Workflow container gets the actual compute resources
+          resources:
+            requests:
+              cpu: "8"
+              memory: "16Gi"
+            limits:
+              cpu: "8"
+              memory: "16Gi"

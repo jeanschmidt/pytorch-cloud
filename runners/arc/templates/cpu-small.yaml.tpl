@@ -1,6 +1,6 @@
 githubConfigUrl: "{{GITHUB_CONFIG_URL}}"
 githubConfigSecret: "{{GITHUB_CONFIG_SECRET}}"
-runnerScaleSetName: "{{RUNNER_NAME_PREFIX}}pytorch-cpu-medium"
+runnerScaleSetName: "{{RUNNER_NAME_PREFIX}}pytorch-cpu-small"
 
 minRunners: 0
 maxRunners: {{MAX_RUNNERS}}
@@ -79,11 +79,48 @@ template:
               accessModes: ["ReadWriteOnce"]
               resources:
                 requests:
-                  storage: 75Gi
+                  storage: 50Gi
               storageClassName: gp3
       - name: hook-extensions
         configMap:
-          name: arc-runner-hook-cpu-medium
+          name: arc-runner-hook-cpu-small
           items:
             - key: job-pod.yaml
               path: job-pod.yaml
+---
+# ConfigMap: Job Pod Hook Template for CPU Small Runners
+# Defines resource requests for workflow job containers in Kubernetes mode
+# Runner pod is lightweight; job pods get the heavy resources
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: arc-runner-hook-cpu-small
+  namespace: arc-runners
+data:
+  job-pod.yaml: |
+    spec:
+      # Job pods need service account to access cluster resources
+      serviceAccountName: arc-runner
+
+      # Schedule job pods on CPU compute nodes
+      nodeSelector:
+        workload-type: github-runner
+
+      # Tolerate CPU architecture taints
+      tolerations:
+        - key: cpu-type
+          operator: Equal
+          value: "compute-optimized"
+          effect: NoSchedule
+
+      containers:
+        - name: "$job"
+          # Workflow container gets the actual compute resources
+          resources:
+            requests:
+              cpu: "4"
+              memory: "8Gi"
+            limits:
+              cpu: "4"
+              memory: "8Gi"

@@ -79,17 +79,22 @@ spec:
   # IAM Instance Profile (created by EKS module)
   role: "pytorch-arc-staging-node-role"
 
-  # Kubelet configuration via NodeConfig (AL2023)
+  # User data (bootstrap script with MIME multipart format)
   # 
   # Karpenter automatically generates the EKS join configuration (cluster endpoint,
   # CA cert, etc.) and merges it with this NodeConfig. We only specify the kubelet
   # settings that aren't available in EC2NodeClass.spec.kubelet.
   # 
-  # This configures:
-  # - CPU Manager: static allocation
-  # - Topology Manager: single-numa-node policy for NUMA awareness
-  # - Performance: CPU governor set to performance mode
+  # IMPORTANT: MIME headers are required when using localUserData!
+  # Without proper MIME format, cloud-init won't process the NodeConfig.
   userData: |
+    MIME-Version: 1.0
+    Content-Type: multipart/mixed; boundary="==BOUNDARY=="
+
+    --==BOUNDARY==
+    Content-Type: application/node.eks.aws
+
+    ---
     apiVersion: node.eks.aws/v1alpha1
     kind: NodeConfig
     spec:
@@ -104,7 +109,7 @@ spec:
 
           # Optional: Reserve CPUs for system daemons (kube-proxy, etc.)
           # Uncomment and adjust based on instance size if needed:
-          reservedSystemCPUs: "0-1"
+          # reservedSystemCPUs: "0-1"
 
       instance:
         # Post-bootstrap script: Configure CPU governor for performance
@@ -141,6 +146,8 @@ spec:
           systemctl start cpu-performance.service
           
           echo "CPU performance configuration complete"
+
+    --==BOUNDARY==--
 
   # Block device mappings
   blockDeviceMappings:

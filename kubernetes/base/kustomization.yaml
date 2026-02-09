@@ -8,10 +8,7 @@ resources:
   - runner-hooks-configmap.yaml
   - runner-serviceaccount.yaml
   - storageclass-gp3.yaml
-  # ARC container hook templates for job pod customization
-  - arc-runner-hooks-cpu-small.yaml
-  - arc-runner-hooks-cpu-medium.yaml
-  - arc-runner-hooks-cpu-large.yaml
-  - arc-runner-hooks-gpu-t4.yaml
+  # Note: ARC runner hook ConfigMaps are now deployed via Helm alongside runner sets
+  # See runners/arc/hooks/ for hook definitions
 
 # Don't set a default namespace - resources specify their own

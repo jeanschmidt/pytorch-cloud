@@ -110,7 +110,7 @@ main() {
 	# Find all runner hook ConfigMaps
 	local files=()
 
-	for configmap in "${PROJECT_ROOT}"/kubernetes/base/arc-runner-hooks-*.yaml; do
+	for configmap in "${PROJECT_ROOT}"/runners/arc/hooks/*.yaml; do
 		if [[ -f "$configmap" ]]; then
 			files+=("$configmap")
 		fi
@@ -118,7 +118,7 @@ main() {
 
 	if [[ ${#files[@]} -eq 0 ]]; then
 		echo -e "${RED}No runner hook ConfigMaps found!${NC}"
-		echo "Expected files in: kubernetes/base/arc-runner-hooks-*.yaml"
+		echo "Expected files in: runners/arc/hooks/*.yaml"
 		exit 1
 	fi
 

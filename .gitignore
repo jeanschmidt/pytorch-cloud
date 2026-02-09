@@ -47,7 +47,7 @@ node_modules/
 
 # Helm
 *.tgz
-helm/runners/generated/
+runners/arc/generated/
 
 # Packer
 packer_cache/

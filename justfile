@@ -403,7 +403,7 @@ deploy-runners env: _auto-setup validate-runners
     @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     @echo ""
     @echo "Generating runner configs for {{env}}..."
-    @bash helm/runners/generate.sh {{env}}
+    @bash runners/arc/generate.sh {{env}}
     @echo ""
     @echo "Deploying Karpenter NodePools and ARC runner scale sets..."
     @echo ""
@@ -439,64 +439,84 @@ _deploy-runner-cpu-small env:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "  → cpu-small (using ghcr.io/actions/actions-runner:latest)"
+    # Apply ConfigMap first (second document in multi-doc YAML)
+    awk '/^---$/,0' runners/arc/generated/cpu-small.yaml | kubectl apply -f -
+    # Install Helm chart with values (first document in multi-doc YAML)
+    awk 'BEGIN{doc=0} /^---$/{doc++} doc==0' runners/arc/generated/cpu-small.yaml > /tmp/cpu-small-values.yaml
     helm upgrade --install arc-cpu-small \
         --namespace arc-runners \
         --create-namespace \
-        -f helm/runners/generated/cpu-small.yaml \
+        -f /tmp/cpu-small-values.yaml \
         --set template.spec.securityContext.runAsUser=1000 \
         --set template.spec.securityContext.runAsGroup=1000 \
         --set template.spec.securityContext.fsGroup=1000 \
         oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
         --version 0.13.1 \
         --wait
+    rm -f /tmp/cpu-small-values.yaml
 
 # Deploy CPU Medium runner
 _deploy-runner-cpu-medium env:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "  → cpu-medium (using ghcr.io/actions/actions-runner:latest)"
+    # Apply ConfigMap first (second document in multi-doc YAML)
+    awk '/^---$/,0' runners/arc/generated/cpu-medium.yaml | kubectl apply -f -
+    # Install Helm chart with values (first document in multi-doc YAML)
+    awk 'BEGIN{doc=0} /^---$/{doc++} doc==0' runners/arc/generated/cpu-medium.yaml > /tmp/cpu-medium-values.yaml
     helm upgrade --install arc-cpu-medium \
         --namespace arc-runners \
         --create-namespace \
-        -f helm/runners/generated/cpu-medium.yaml \
+        -f /tmp/cpu-medium-values.yaml \
         --set template.spec.securityContext.runAsUser=1000 \
         --set template.spec.securityContext.runAsGroup=1000 \
         --set template.spec.securityContext.fsGroup=1000 \
         oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
         --version 0.13.1 \
         --wait
+    rm -f /tmp/cpu-medium-values.yaml
 
 # Deploy CPU Large runner
 _deploy-runner-cpu-large env:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "  → cpu-large (using ghcr.io/actions/actions-runner:latest)"
+    # Apply ConfigMap first (second document in multi-doc YAML)
+    awk '/^---$/,0' runners/arc/generated/cpu-large.yaml | kubectl apply -f -
+    # Install Helm chart with values (first document in multi-doc YAML)
+    awk 'BEGIN{doc=0} /^---$/{doc++} doc==0' runners/arc/generated/cpu-large.yaml > /tmp/cpu-large-values.yaml
     helm upgrade --install arc-cpu-large \
         --namespace arc-runners \
         --create-namespace \
-        -f helm/runners/generated/cpu-large.yaml \
+        -f /tmp/cpu-large-values.yaml \
         --set template.spec.securityContext.runAsUser=1000 \
         --set template.spec.securityContext.runAsGroup=1000 \
         --set template.spec.securityContext.fsGroup=1000 \
         oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
         --version 0.13.1 \
         --wait
+    rm -f /tmp/cpu-large-values.yaml
 
 # Deploy GPU T4 runner
 _deploy-runner-gpu-t4 env:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "  → gpu-t4 (using ghcr.io/actions/actions-runner:latest)"
+    # Apply ConfigMap first (second document in multi-doc YAML)
+    awk '/^---$/,0' runners/arc/generated/gpu-t4.yaml | kubectl apply -f -
+    # Install Helm chart with values (first document in multi-doc YAML)
+    awk 'BEGIN{doc=0} /^---$/{doc++} doc==0' runners/arc/generated/gpu-t4.yaml > /tmp/gpu-t4-values.yaml
     helm upgrade --install arc-gpu-t4 \
         --namespace arc-runners \
         --create-namespace \
-        -f helm/runners/generated/gpu-t4.yaml \
+        -f /tmp/gpu-t4-values.yaml \
         --set template.spec.securityContext.runAsUser=1000 \
         --set template.spec.securityContext.runAsGroup=1000 \
         --set template.spec.securityContext.fsGroup=1000 \
         oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
         --version 0.13.1 \
         --wait
+    rm -f /tmp/gpu-t4-values.yaml
 
 # Destroy entire environment (with confirmation)
 destroy env: _auto-setup

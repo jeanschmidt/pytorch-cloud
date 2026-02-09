@@ -87,3 +87,40 @@ template:
           items:
             - key: job-pod.yaml
               path: job-pod.yaml
+---
+# ConfigMap: Job Pod Hook Template for CPU Large Runners
+# Defines resource requests for workflow job containers in Kubernetes mode
+# Runner pod is lightweight; job pods get the heavy resources
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: arc-runner-hook-cpu-large
+  namespace: arc-runners
+data:
+  job-pod.yaml: |
+    spec:
+      # Job pods need service account to access cluster resources
+      serviceAccountName: arc-runner
+
+      # Schedule job pods on CPU compute nodes
+      nodeSelector:
+        workload-type: github-runner
+
+      # Tolerate CPU architecture taints
+      tolerations:
+        - key: cpu-type
+          operator: Equal
+          value: "compute-optimized"
+          effect: NoSchedule
+
+      containers:
+        - name: "$job"
+          # Workflow container gets the actual compute resources
+          resources:
+            requests:
+              cpu: "16"
+              memory: "32Gi"
+            limits:
+              cpu: "16"
+              memory: "32Gi"

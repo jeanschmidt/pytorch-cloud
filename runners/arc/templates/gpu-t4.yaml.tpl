@@ -1,6 +1,6 @@
 githubConfigUrl: "{{GITHUB_CONFIG_URL}}"
 githubConfigSecret: "{{GITHUB_CONFIG_SECRET}}"
-runnerScaleSetName: "{{RUNNER_NAME_PREFIX}}pytorch-cpu-small"
+runnerScaleSetName: "{{RUNNER_NAME_PREFIX}}pytorch-gpu-t4"
 
 minRunners: 0
 maxRunners: {{MAX_RUNNERS}}
@@ -35,15 +35,19 @@ template:
   spec:
     serviceAccountName: arc-runner
 
-    # Schedule runner pods on CPU compute nodes
+    # Runner pod should be lightweight and NOT request GPU
+    # The GPU will be allocated to job pods via the hook template
+    # However, we still schedule runner on GPU nodes so job pods can run locally
     nodeSelector:
-      workload-type: github-runner
+      nvidia.com/gpu: "true"
+      nvidia.com/gpu.product: "T4"
 
-    # Tolerate CPU architecture taints
     tolerations:
+      - key: nvidia.com/gpu
+        value: "t4"
+        effect: NoSchedule
       - key: cpu-type
-        operator: Equal
-        value: "compute-optimized"
+        value: "intel-xeon"
         effect: NoSchedule
 
     containers:
@@ -57,7 +61,8 @@ template:
           - name: ACTIONS_RUNNER_CONTAINER_HOOK_TEMPLATE
             value: /home/runner/hook-extensions/job-pod.yaml
         resources:
-          # LIGHTWEIGHT runner pod - job pods get the heavy resources
+          # LIGHTWEIGHT runner pod - NO GPU requested here
+          # Job pods get the GPU via hook template
           # Runner is just an orchestrator, doesn't do the actual work
           limits:
             cpu: "200m"
@@ -79,11 +84,53 @@ template:
               accessModes: ["ReadWriteOnce"]
               resources:
                 requests:
-                  storage: 50Gi
+                  storage: 200Gi
               storageClassName: gp3
       - name: hook-extensions
         configMap:
-          name: arc-runner-hook-cpu-small
+          name: arc-runner-hook-gpu-t4
           items:
             - key: job-pod.yaml
               path: job-pod.yaml
+---
+# ConfigMap: Job Pod Hook Template for GPU T4 Runners
+# Defines resource requests for workflow job containers in Kubernetes mode
+# Runner pod is lightweight; job pods get the heavy resources INCLUDING GPUs
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: arc-runner-hook-gpu-t4
+  namespace: arc-runners
+data:
+  job-pod.yaml: |
+    spec:
+      # Job pods need service account to access cluster resources
+      serviceAccountName: arc-runner
+
+      # Schedule job pods on GPU nodes
+      nodeSelector:
+        nvidia.com/gpu: "true"
+        nvidia.com/gpu.product: "T4"
+
+      # Tolerate GPU node taints
+      tolerations:
+        - key: nvidia.com/gpu
+          value: "t4"
+          effect: NoSchedule
+        - key: cpu-type
+          value: "intel-xeon"
+          effect: NoSchedule
+
+      containers:
+        - name: "$job"
+          # Workflow container gets GPU + compute resources
+          resources:
+            requests:
+              cpu: "8"
+              memory: "32Gi"
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "8"
+              memory: "32Gi"
+              nvidia.com/gpu: "1"
